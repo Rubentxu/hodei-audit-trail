@@ -13,6 +13,7 @@ pub mod crypto;
 pub mod enrichment;
 pub mod grpc;
 pub mod hrn;
+pub mod query;
 pub mod storage;
 
 // Re-exports públicos
