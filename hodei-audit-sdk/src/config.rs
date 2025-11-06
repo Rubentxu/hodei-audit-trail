@@ -3,7 +3,28 @@
 //! Este módulo proporciona la configuración del SDK usando un builder pattern
 //! para facilitar la configuración flexible del middleware de auditoría.
 
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Trait para resolver HRN y obtener metadata
+pub trait HrnResolver: Send + Sync + std::fmt::Debug {
+    /// Resolver HRN para obtener metadata
+    fn resolve(&self, hrn: &str) -> Result<HrnMetadata, crate::error::AuditError>;
+}
+
+/// Metadata de un HRN
+#[derive(Debug, Clone)]
+pub struct HrnMetadata {
+    /// Nombre para mostrar
+    pub display_name: String,
+    /// Tags asociados
+    pub tags: Vec<String>,
+    /// Tipo de recurso
+    pub resource_type: String,
+    /// Metadata adicional
+    pub additional_data: Option<std::collections::HashMap<String, String>>,
+}
 
 /// Configuración del SDK de auditoría
 #[derive(Debug, Clone)]
@@ -26,6 +47,8 @@ pub struct AuditSdkConfig {
     pub grpc_timeout: Duration,
     /// Número de reintentos
     pub max_retries: u32,
+    /// HRN Resolver para metadata
+    pub hrn_resolver: Option<Arc<dyn HrnResolver>>,
 }
 
 impl Default for AuditSdkConfig {
@@ -40,6 +63,7 @@ impl Default for AuditSdkConfig {
             enable_response_body: false,
             grpc_timeout: Duration::from_secs(30),
             max_retries: 3,
+            hrn_resolver: None,
         }
     }
 }
@@ -120,6 +144,12 @@ impl AuditConfigBuilder {
     /// Configurar el número máximo de reintentos
     pub fn max_retries(mut self, retries: u32) -> Self {
         self.config.max_retries = retries;
+        self
+    }
+
+    /// Configurar el HRN resolver
+    pub fn hrn_resolver(mut self, resolver: Arc<dyn HrnResolver>) -> Self {
+        self.config.hrn_resolver = Some(resolver);
         self
     }
 

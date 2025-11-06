@@ -30,15 +30,23 @@
 //! - `hrn-resolution`: Habilita resolución de HRN
 //! - `custom-enricher`: Habilita enrichers personalizados
 
+pub mod batch;
+pub mod client;
 pub mod config;
 pub mod error;
+pub mod hrn;
 pub mod middleware;
 pub mod models;
+pub mod types;
 
-pub use config::{AuditConfigBuilder, AuditSdkConfig};
+pub use batch::{BatchQueue, BatchStats, FlushPolicy, GrpcConnectionPool, RetryConfig, RetryError};
+pub use client::{AuditClient, AuditQueryResult};
+pub use config::{AuditConfigBuilder, AuditSdkConfig, HrnMetadata, HrnResolver};
 pub use error::AuditError;
+pub use hrn::{Hrn, enrich_event_with_hrn, generate_hrn_from_path};
 pub use middleware::AuditLayer;
 pub use models::{AuditEvent, EventBuilder};
+pub use types::AuditQuery;
 
 /// Resultado de operaciones del SDK
 pub type Result<T> = std::result::Result<T, AuditError>;

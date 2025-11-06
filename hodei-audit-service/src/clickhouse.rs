@@ -521,7 +521,7 @@ impl ClickHouseSchema {
     pub async fn create_schema(&self) -> Result<(), anyhow::Error> {
         info!("[ClickHouse] Creating optimized schema...");
 
-        // Schema creation SQL
+        // Schema creation SQL with TTL (7 days for Hot tier)
         let create_table_sql = r#"
         CREATE TABLE IF NOT EXISTS audit_events (
             event_id String,
@@ -540,6 +540,7 @@ impl ClickHouseSchema {
         ) ENGINE = MergeTree()
         PARTITION BY toYYYYMM(timestamp)
         ORDER BY (tenant_id, timestamp, hrn)
+        TTL timestamp + INTERVAL 7 DAY
         SETTINGS index_granularity = 8192;
         "#;
 
@@ -554,6 +555,7 @@ impl ClickHouseSchema {
         info!("[ClickHouse] Schema created successfully");
         info!("[ClickHouse] Partitioning: toYYYYMM(timestamp)");
         info!("[ClickHouse] Sorting: (tenant_id, timestamp, hrn)");
+        info!("[ClickHouse] TTL: 7 days (Hot tier)");
         info!("[ClickHouse] Indices: tenant, hrn, timestamp, action");
 
         // In production, execute these SQL statements

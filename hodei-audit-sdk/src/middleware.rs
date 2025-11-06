@@ -3,7 +3,9 @@
 //! Este módulo implementa el middleware que captura automáticamente
 //! las requests HTTP y las envía como eventos de auditoría.
 
+use crate::batch::BatchQueue;
 use crate::config::AuditSdkConfig;
+use crate::hrn::{enrich_event_with_hrn, generate_hrn_from_path};
 use crate::models::AuditEvent;
 use bytes::Bytes;
 use http::{Request, Response};
@@ -12,20 +14,52 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower::{Layer, Service};
-use tracing::debug;
+use tracing::{debug, error};
 
 /// Layer de auditoría que implementa el middleware Axum
 #[derive(Debug, Clone)]
 pub struct AuditLayer {
     /// Configuración del SDK
     config: Arc<AuditSdkConfig>,
+    /// Batch queue para eventos
+    batch_queue: Arc<BatchQueue>,
 }
 
 impl AuditLayer {
     /// Crear un nuevo layer de auditoría
     pub fn new(config: AuditSdkConfig) -> Self {
+        let batch_queue = Arc::new(BatchQueue::new(config.clone()));
+
         Self {
             config: Arc::new(config),
+            batch_queue,
+        }
+    }
+
+    /// Iniciar el timer de flush automático (opcional)
+    /// Debe ser llamado dentro de un contexto async
+    pub fn start_flush_timer(&self) {
+        let queue_clone = self.batch_queue.clone();
+        let config_clone = self.config.clone();
+        tokio::spawn(async move {
+            start_flush_timer(queue_clone, config_clone.batch_timeout).await;
+        });
+    }
+
+    /// Obtener estadísticas del batch
+    pub fn get_batch_stats(&self) -> crate::batch::BatchStats {
+        self.batch_queue.get_stats()
+    }
+}
+
+/// Iniciar el timer de flush automático
+async fn start_flush_timer(queue: Arc<BatchQueue>, timeout: std::time::Duration) {
+    let mut interval = tokio::time::interval(timeout);
+
+    loop {
+        interval.tick().await;
+        if let Err(e) = queue.flush().await {
+            error!("Failed to flush batch: {}", e);
         }
     }
 }
@@ -36,6 +70,7 @@ impl<S> Layer<S> for AuditLayer {
     fn layer(&self, service: S) -> Self::Service {
         AuditService {
             config: self.config.clone(),
+            batch_queue: self.batch_queue.clone(),
             service,
         }
     }
@@ -46,6 +81,8 @@ impl<S> Layer<S> for AuditLayer {
 pub struct AuditService<S> {
     /// Configuración del SDK
     config: Arc<AuditSdkConfig>,
+    /// Batch queue
+    batch_queue: Arc<BatchQueue>,
     /// Service inner
     service: S,
 }
@@ -66,36 +103,52 @@ where
 
     fn call(&mut self, request: Request<B>) -> Self::Future {
         let config = self.config.clone();
+        let batch_queue = self.batch_queue.clone();
         let mut service = self.service.clone();
 
-        Box::pin(async move {
-            // Extract audit data (borrow request immutably)
-            let method = request.method().clone();
-            let path = request.uri().path().to_string();
-            let user_id = request
-                .headers()
-                .get("x-user-id")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.to_string());
-            let tenant_id = request
-                .headers()
-                .get("x-tenant-id")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.to_string());
+        // Extract audit data from request before moving it
+        let method = request.method().clone();
+        let path = request.uri().path().to_string();
+        let user_id = request
+            .headers()
+            .get("x-user-id")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+        let tenant_id = request
+            .headers()
+            .get("x-tenant-id")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
 
-            // Call next service
+        Box::pin(async move {
+            // Call next service with the original request (need mutable reference)
             let response = service.call(request).await?;
 
+            // Generate HRN from request
+            let hrn =
+                generate_hrn_from_path(&method, &path, tenant_id.as_deref()).unwrap_or_else(|_| {
+                    // Fallback to simple HRN if generation fails
+                    let fallback_hrn = format!(
+                        "hrn:hodei:{}:{}:global:resource/{}",
+                        config.service_name,
+                        tenant_id.as_deref().unwrap_or("unknown"),
+                        path
+                    );
+                    // Parse the fallback HRN
+                    crate::hrn::Hrn::parse(&fallback_hrn).unwrap_or_else(|_| {
+                        // If even the fallback fails, create a minimal valid HRN
+                        crate::hrn::Hrn::parse(&format!(
+                            "hrn:hodei:service:unknown:global:resource/unknown"
+                        ))
+                        .unwrap()
+                    })
+                });
+
             // Create audit event (non-blocking)
-            let event = AuditEvent {
+            let mut event = AuditEvent {
                 event_name: format!("{} {}", method, path),
                 event_category: 0, // Management event
-                hrn: format!(
-                    "hrn:hodei:{}:{}:global:resource/{}",
-                    config.service_name,
-                    tenant_id.as_deref().unwrap_or("unknown"),
-                    path
-                ),
+                hrn: hrn.to_string(),
                 user_id: user_id.unwrap_or_else(|| "anonymous".to_string()),
                 tenant_id: tenant_id.unwrap_or_else(|| "unknown".to_string()),
                 trace_id: "no-trace".to_string(),
@@ -107,49 +160,19 @@ where
                 additional_data: None,
             };
 
+            // Enrich with HRN metadata if resolver is available
+            if let Err(e) = enrich_event_with_hrn(&mut event, &config.hrn_resolver).await {
+                debug!("Failed to enrich event with HRN metadata: {}", e);
+            }
+
             // Add to batch queue (async, non-blocking)
-            // In a full implementation, this would add to a batch queue
-            // For now, we just log it
-            debug!("Created audit event: {:?}", event.event_name);
+            if let Err(e) = batch_queue.add_event(event) {
+                error!("Failed to add event to batch: {}", e);
+            }
 
             Ok(response)
         })
     }
-}
-
-/// Auto-generar HRN desde el path de la request
-fn generate_hrn_from_path(
-    method: &http::Method,
-    path: &str,
-    tenant_id: &str,
-) -> Result<String, crate::error::AuditError> {
-    // Mapeo de paths a patrones HRN
-    let service_type = match path {
-        // verified-permissions endpoints
-        p if p.starts_with("/v1/policy-stores") => "verified-permissions",
-        p if p.starts_with("/v1/authorize") => "authorization",
-
-        // API service endpoints
-        p if p.starts_with("/api/v1/") => "api",
-        p if p.starts_with("/api/") => "api",
-
-        // Auth endpoints
-        p if p.starts_with("/v1/auth/") => "auth",
-        p if p.starts_with("/auth/") => "auth",
-
-        // Default
-        _ => "service",
-    };
-
-    let hrn = format!(
-        "hrn:hodei:{}:{}:global:{}/{}",
-        service_type,
-        tenant_id,
-        service_type,
-        path.trim_start_matches('/')
-    );
-
-    Ok(hrn)
 }
 
 #[cfg(test)]
@@ -217,37 +240,6 @@ mod tests {
         assert!(config_str.contains("test-service"));
         assert!(config_str.contains("test-tenant"));
         assert!(config_str.contains("http://localhost:50052"));
-    }
-
-    #[test]
-    fn test_generate_hrn_from_path() {
-        // Test verified-permissions endpoint
-        let hrn = generate_hrn_from_path(
-            &http::Method::GET,
-            "/v1/policy-stores/default",
-            "tenant-123",
-        )
-        .unwrap();
-        assert!(hrn.contains("verified-permissions"));
-        assert!(hrn.contains("tenant-123"));
-        assert!(hrn.contains("policy-stores/default"));
-
-        // Test API endpoint
-        let hrn =
-            generate_hrn_from_path(&http::Method::POST, "/api/v1/users/456", "tenant-123").unwrap();
-        assert!(hrn.contains("api"));
-        assert!(hrn.contains("users/456"));
-
-        // Test auth endpoint
-        let hrn =
-            generate_hrn_from_path(&http::Method::POST, "/v1/auth/login", "tenant-123").unwrap();
-        assert!(hrn.contains("auth"));
-        assert!(hrn.contains("auth/login"));
-
-        // Test default endpoint
-        let hrn = generate_hrn_from_path(&http::Method::GET, "/health", "tenant-123").unwrap();
-        assert!(hrn.contains("service"));
-        assert!(hrn.contains("health"));
     }
 
     #[test]

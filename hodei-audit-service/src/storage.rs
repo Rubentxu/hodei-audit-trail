@@ -456,6 +456,65 @@ impl StorageBackend for GlacierStorage {
     }
 }
 
+/// Query planner for tier optimization
+#[derive(Debug, Clone)]
+pub struct QueryPlan {
+    /// Which tiers to query
+    pub target_tiers: Vec<StorageTierSelection>,
+    /// Estimated latency in milliseconds
+    pub estimated_latency_ms: u64,
+    /// Estimated cost in USD
+    pub estimated_cost_usd: f64,
+    /// Parallel execution flag
+    pub parallel_execution: bool,
+}
+
+/// Selection of a specific tier for querying
+#[derive(Debug, Clone)]
+pub struct StorageTierSelection {
+    /// Tier type
+    pub tier: StorageTierType,
+    /// Filter for this tier
+    pub filter: QueryFilter,
+}
+
+/// Tier type enum
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StorageTierType {
+    Hot,
+    Warm,
+    Cold,
+}
+
+/// Storage cost configuration
+#[derive(Debug, Clone)]
+pub struct CostConfig {
+    /// Cost per GB per month in USD
+    pub hot_cost_per_gb_month: f64,
+    pub warm_cost_per_gb_month: f64,
+    pub cold_cost_per_gb_month: f64,
+    /// Query cost per 1K queries in USD
+    pub hot_query_cost_per_1k: f64,
+    pub warm_query_cost_per_1k: f64,
+    pub cold_query_cost_per_1k: f64,
+    /// Transfer cost per GB in USD
+    pub transfer_cost_per_gb: f64,
+}
+
+impl Default for CostConfig {
+    fn default() -> Self {
+        Self {
+            hot_cost_per_gb_month: 0.25,   // ClickHouse
+            warm_cost_per_gb_month: 0.023, // S3 Standard
+            cold_cost_per_gb_month: 0.004, // Glacier Deep Archive
+            hot_query_cost_per_1k: 0.10,
+            warm_query_cost_per_1k: 0.05,
+            cold_query_cost_per_1k: 0.01,
+            transfer_cost_per_gb: 0.09,
+        }
+    }
+}
+
 /// Tiered Storage Orchestrator
 pub struct TieredStorage {
     /// Hot tier backend
@@ -468,6 +527,8 @@ pub struct TieredStorage {
     lifecycle_policy: LifecyclePolicy,
     /// Partition strategy
     partition_strategy: PartitionStrategy,
+    /// Cost configuration
+    cost_config: CostConfig,
     /// Statistics
     stats: std::sync::Arc<std::sync::RwLock<StorageStats>>,
 }
@@ -500,6 +561,7 @@ impl TieredStorage {
             cold,
             lifecycle_policy: LifecyclePolicy::default(),
             partition_strategy: PartitionStrategy::default(),
+            cost_config: CostConfig::default(),
             stats: Arc::new(std::sync::RwLock::new(StorageStats::default())),
         }
     }
@@ -518,6 +580,7 @@ impl TieredStorage {
             cold,
             lifecycle_policy,
             partition_strategy,
+            cost_config: CostConfig::default(),
             stats: Arc::new(std::sync::RwLock::new(StorageStats::default())),
         }
     }
@@ -646,7 +709,7 @@ impl TieredStorage {
             return Ok(0);
         }
 
-        let mut migrated_count = 0;
+        let migrated_count = 0;
         info!("[TieredStorage] Starting lifecycle migration...");
 
         // In a real implementation, this would:
@@ -664,6 +727,187 @@ impl TieredStorage {
             migrated_count
         );
         Ok(migrated_count)
+    }
+
+    /// Plan optimal query execution across tiers
+    pub fn plan_query(&self, filter: &QueryFilter) -> QueryPlan {
+        // Determine which tiers to query based on time range
+        let mut target_tiers = Vec::new();
+        let mut estimated_latency = 0u64;
+        let mut estimated_cost = 0.0;
+
+        // Analyze time range to determine which tiers to query
+        let now = SystemTime::now();
+        let start_time = filter.start_time.unwrap_or(now);
+        let end_time = filter.end_time.unwrap_or(now);
+
+        // Calculate time span in days
+        let duration = end_time.duration_since(start_time).unwrap_or_default();
+        let span_days = duration.as_secs() / (24 * 60 * 60);
+
+        // Always query hot tier for recent data
+        let hot_filter = self.adjust_filter_for_tier(filter, StorageTierType::Hot);
+        target_tiers.push(StorageTierSelection {
+            tier: StorageTierType::Hot,
+            filter: hot_filter,
+        });
+        estimated_latency = std::cmp::max(estimated_latency, 10); // 10ms
+        estimated_cost += self.estimate_query_cost(1000, StorageTierType::Hot);
+
+        // Query warm tier if time span includes historical data
+        if span_days > self.lifecycle_policy.hot_retention_days {
+            let warm_filter = self.adjust_filter_for_tier(filter, StorageTierType::Warm);
+            target_tiers.push(StorageTierSelection {
+                tier: StorageTierType::Warm,
+                filter: warm_filter,
+            });
+            estimated_latency = std::cmp::max(estimated_latency, 500); // 500ms
+            estimated_cost += self.estimate_query_cost(1000, StorageTierType::Warm);
+        }
+
+        // Query cold tier for very old data
+        if span_days > self.lifecycle_policy.warm_retention_days {
+            let cold_filter = self.adjust_filter_for_tier(filter, StorageTierType::Cold);
+            target_tiers.push(StorageTierSelection {
+                tier: StorageTierType::Cold,
+                filter: cold_filter,
+            });
+            estimated_latency = std::cmp::max(estimated_latency, 30000); // 30s
+            estimated_cost += self.estimate_query_cost(1000, StorageTierType::Cold);
+        }
+
+        // Enable parallel execution for multiple tiers
+        let parallel_execution = target_tiers.len() > 1;
+
+        info!(
+            "[TieredStorage] Query plan: {} tiers, estimated latency: {}ms, cost: ${:.4}",
+            target_tiers.len(),
+            estimated_latency,
+            estimated_cost
+        );
+
+        QueryPlan {
+            target_tiers,
+            estimated_latency_ms: estimated_latency,
+            estimated_cost_usd: estimated_cost,
+            parallel_execution,
+        }
+    }
+
+    /// Adjust filter for a specific tier
+    fn adjust_filter_for_tier(&self, filter: &QueryFilter, tier: StorageTierType) -> QueryFilter {
+        let mut adjusted = filter.clone();
+
+        // Adjust time range based on tier
+        let now = SystemTime::now();
+        match tier {
+            StorageTierType::Hot => {
+                adjusted.start_time = Some(
+                    now - Duration::from_secs(
+                        self.lifecycle_policy.hot_retention_days * 24 * 60 * 60,
+                    ),
+                );
+                adjusted.end_time = Some(now);
+            }
+            StorageTierType::Warm => {
+                adjusted.start_time = Some(
+                    now - Duration::from_secs(
+                        self.lifecycle_policy.warm_retention_days * 24 * 60 * 60,
+                    ),
+                );
+                adjusted.end_time = Some(
+                    now - Duration::from_secs(
+                        self.lifecycle_policy.hot_retention_days * 24 * 60 * 60,
+                    ),
+                );
+            }
+            StorageTierType::Cold => {
+                adjusted.end_time = Some(
+                    now - Duration::from_secs(
+                        self.lifecycle_policy.warm_retention_days * 24 * 60 * 60,
+                    ),
+                );
+            }
+        }
+
+        adjusted
+    }
+
+    /// Estimate query cost in USD
+    pub fn estimate_query_cost(&self, query_count: usize, tier: StorageTierType) -> f64 {
+        let queries_per_1k = query_count as f64 / 1000.0;
+
+        let query_cost = match tier {
+            StorageTierType::Hot => queries_per_1k * self.cost_config.hot_query_cost_per_1k,
+            StorageTierType::Warm => queries_per_1k * self.cost_config.warm_query_cost_per_1k,
+            StorageTierType::Cold => queries_per_1k * self.cost_config.cold_query_cost_per_1k,
+        };
+
+        query_cost
+    }
+
+    /// Estimate storage cost for all tiers
+    pub fn estimate_storage_cost(&self, data_size_gb: f64) -> f64 {
+        let hot_cost = data_size_gb * self.cost_config.hot_cost_per_gb_month;
+        let warm_cost = data_size_gb * 0.7 * self.cost_config.warm_cost_per_gb_month; // 70% in warm
+        let cold_cost = data_size_gb * 0.2 * self.cost_config.cold_cost_per_gb_month; // 20% in cold
+
+        hot_cost + warm_cost + cold_cost
+    }
+
+    /// Execute query with parallel execution if beneficial
+    pub async fn query_events_optimized(
+        &self,
+        filter: &QueryFilter,
+    ) -> Result<Vec<AuditEvent>, anyhow::Error> {
+        let query_plan = self.plan_query(filter);
+
+        if query_plan.parallel_execution {
+            // Execute queries in parallel
+            let mut handles = Vec::new();
+
+            // Clone the target tiers to avoid lifetime issues
+            let target_tiers = query_plan.target_tiers.clone();
+
+            for tier_selection in target_tiers {
+                let hot = self.hot.clone();
+                let warm = self.warm.clone();
+                let cold = self.cold.clone();
+                let filter = tier_selection.filter;
+
+                let handle = tokio::spawn(async move {
+                    match tier_selection.tier {
+                        StorageTierType::Hot => hot.query_events(&filter).await,
+                        StorageTierType::Warm => warm.query_events(&filter).await,
+                        StorageTierType::Cold => cold.query_events(&filter).await,
+                    }
+                });
+
+                handles.push(handle);
+            }
+
+            // Collect results
+            let mut all_events = Vec::new();
+            for handle in handles {
+                let result = handle.await??;
+                all_events.extend(result);
+            }
+
+            info!(
+                "[TieredStorage] Parallel query completed, found {} events in {}ms",
+                all_events.len(),
+                query_plan.estimated_latency_ms
+            );
+
+            Ok(all_events)
+        } else {
+            // Sequential execution (single tier)
+            match query_plan.target_tiers[0].tier {
+                StorageTierType::Hot => self.hot.query_events(filter).await,
+                StorageTierType::Warm => self.warm.query_events(filter).await,
+                StorageTierType::Cold => self.cold.query_events(filter).await,
+            }
+        }
     }
 }
 
@@ -836,5 +1080,94 @@ mod tests {
         // Should be in format YYYYMMDD
         assert_eq!(key.len(), 8);
         assert!(key.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn test_query_planner_hot_only() {
+        let storage = TieredStorage::new();
+        let filter = QueryFilter::default();
+
+        let plan = storage.plan_query(&filter);
+
+        assert_eq!(plan.target_tiers.len(), 1);
+        assert_eq!(plan.target_tiers[0].tier, StorageTierType::Hot);
+        assert!(!plan.parallel_execution);
+        assert!(plan.estimated_latency_ms > 0);
+        assert!(plan.estimated_cost_usd >= 0.0);
+    }
+
+    #[test]
+    fn test_query_planner_multiple_tiers() {
+        let storage = TieredStorage::new();
+
+        // Create filter with 400-day range (should query all tiers)
+        let start_time = SystemTime::now() - Duration::from_secs(400 * 24 * 60 * 60);
+        let filter = QueryFilter {
+            start_time: Some(start_time),
+            end_time: Some(SystemTime::now()),
+            ..Default::default()
+        };
+
+        let plan = storage.plan_query(&filter);
+
+        // Should query all three tiers
+        assert_eq!(plan.target_tiers.len(), 3);
+        assert!(plan.parallel_execution);
+        assert!(plan.estimated_latency_ms > 0);
+        assert!(plan.estimated_cost_usd > 0.0);
+    }
+
+    #[test]
+    fn test_cost_estimation() {
+        let storage = TieredStorage::new();
+
+        // Estimate cost for 100 GB
+        let cost = storage.estimate_storage_cost(100.0);
+
+        // Should be positive and reasonable
+        assert!(cost > 0.0);
+        assert!(cost < 100.0); // Sanity check
+    }
+
+    #[test]
+    fn test_query_cost_estimation() {
+        let storage = TieredStorage::new();
+
+        // Hot tier should be most expensive
+        let hot_cost = storage.estimate_query_cost(1000, StorageTierType::Hot);
+        let warm_cost = storage.estimate_query_cost(1000, StorageTierType::Warm);
+        let cold_cost = storage.estimate_query_cost(1000, StorageTierType::Cold);
+
+        assert!(hot_cost >= 0.0);
+        assert!(warm_cost >= 0.0);
+        assert!(cold_cost >= 0.0);
+        assert!(hot_cost >= warm_cost); // Hot is more expensive
+        assert!(warm_cost >= cold_cost); // Warm is more expensive than cold
+    }
+
+    #[tokio::test]
+    async fn test_parallel_query_execution() {
+        let storage = TieredStorage::new();
+        let filter = QueryFilter::default();
+
+        let result = storage.query_events_optimized(&filter).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tier_selection_time_adjustment() {
+        let storage = TieredStorage::new();
+        let filter = QueryFilter::default();
+
+        // Test that filters are adjusted for each tier
+        let hot_filter = storage.adjust_filter_for_tier(&filter, StorageTierType::Hot);
+        let warm_filter = storage.adjust_filter_for_tier(&filter, StorageTierType::Warm);
+        let cold_filter = storage.adjust_filter_for_tier(&filter, StorageTierType::Cold);
+
+        // Each tier should have adjusted time ranges
+        assert!(hot_filter.start_time.is_some());
+        assert!(hot_filter.end_time.is_some());
+        assert!(warm_filter.start_time.is_some());
+        assert!(cold_filter.end_time.is_some());
     }
 }

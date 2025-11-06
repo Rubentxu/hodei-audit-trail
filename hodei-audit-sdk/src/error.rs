@@ -19,6 +19,9 @@ pub enum AuditError {
 
     #[error("Parse error: {0}")]
     ParseError(String),
+
+    #[error("HRN error: {0}")]
+    HrnError(String),
 }
 
 impl AuditError {

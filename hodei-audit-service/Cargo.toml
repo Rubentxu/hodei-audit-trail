@@ -22,6 +22,7 @@ prost-types = { workspace = true }
 # Error handling
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+http = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
@@ -45,3 +46,11 @@ lru = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# Testcontainers for integration tests
+testcontainers = "0.25"
+# HTTP client for testing
+reqwest = { version = "0.11", features = ["json"] }
+# Async test utilities
+tokio-test = "0.4"
+# Tracing for tests
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
