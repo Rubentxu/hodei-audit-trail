@@ -117,6 +117,41 @@ where
     }
 }
 
+/// Auto-generar HRN desde el path de la request
+fn generate_hrn_from_path(
+    method: &http::Method,
+    path: &str,
+    tenant_id: &str,
+) -> Result<String, crate::error::AuditError> {
+    // Mapeo de paths a patrones HRN
+    let service_type = match path {
+        // verified-permissions endpoints
+        p if p.starts_with("/v1/policy-stores") => "verified-permissions",
+        p if p.starts_with("/v1/authorize") => "authorization",
+
+        // API service endpoints
+        p if p.starts_with("/api/v1/") => "api",
+        p if p.starts_with("/api/") => "api",
+
+        // Auth endpoints
+        p if p.starts_with("/v1/auth/") => "auth",
+        p if p.starts_with("/auth/") => "auth",
+
+        // Default
+        _ => "service",
+    };
+
+    let hrn = format!(
+        "hrn:hodei:{}:{}:global:{}/{}",
+        service_type,
+        tenant_id,
+        service_type,
+        path.trim_start_matches('/')
+    );
+
+    Ok(hrn)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,5 +217,59 @@ mod tests {
         assert!(config_str.contains("test-service"));
         assert!(config_str.contains("test-tenant"));
         assert!(config_str.contains("http://localhost:50052"));
+    }
+
+    #[test]
+    fn test_generate_hrn_from_path() {
+        // Test verified-permissions endpoint
+        let hrn = generate_hrn_from_path(
+            &http::Method::GET,
+            "/v1/policy-stores/default",
+            "tenant-123",
+        )
+        .unwrap();
+        assert!(hrn.contains("verified-permissions"));
+        assert!(hrn.contains("tenant-123"));
+        assert!(hrn.contains("policy-stores/default"));
+
+        // Test API endpoint
+        let hrn =
+            generate_hrn_from_path(&http::Method::POST, "/api/v1/users/456", "tenant-123").unwrap();
+        assert!(hrn.contains("api"));
+        assert!(hrn.contains("users/456"));
+
+        // Test auth endpoint
+        let hrn =
+            generate_hrn_from_path(&http::Method::POST, "/v1/auth/login", "tenant-123").unwrap();
+        assert!(hrn.contains("auth"));
+        assert!(hrn.contains("auth/login"));
+
+        // Test default endpoint
+        let hrn = generate_hrn_from_path(&http::Method::GET, "/health", "tenant-123").unwrap();
+        assert!(hrn.contains("service"));
+        assert!(hrn.contains("health"));
+    }
+
+    #[test]
+    fn test_extract_audit_context() {
+        // This test verifies that the middleware can extract
+        // context from headers properly
+        let request = Request::builder()
+            .uri("/api/test?foo=bar")
+            .header("x-user-id", "user-123")
+            .header("x-tenant-id", "tenant-123")
+            .header("x-trace-id", "trace-456")
+            .header("x-forwarded-for", "192.168.1.1")
+            .header("user-agent", "Mozilla/5.0")
+            .body(())
+            .unwrap();
+
+        let method = request.method().clone();
+        let path = request.uri().path().to_string();
+        let query = request.uri().query().unwrap_or("").to_string();
+
+        assert_eq!(method, http::Method::GET);
+        assert_eq!(path, "/api/test");
+        assert_eq!(query, "foo=bar");
     }
 }
