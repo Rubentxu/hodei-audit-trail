@@ -15,6 +15,7 @@ pub mod enrichment;
 pub mod grpc;
 pub mod hrn;
 pub mod query;
+pub mod s3_storage;
 pub mod storage;
 
 // Re-exports públicos
@@ -23,3 +24,6 @@ pub use grpc::audit_control_server;
 pub use grpc::audit_crypto_server;
 pub use grpc::audit_query_server;
 pub use grpc::vector_api_server;
+pub use s3_storage::{
+    CompressionType, LifecyclePolicy, ParquetStats, S3Client, S3Config, S3Metrics,
+};
