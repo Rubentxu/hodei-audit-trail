@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package hodei.audit;
 
+import "common.proto";
 import "audit_event.proto";
 
 option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
@@ -33,16 +34,4 @@ service VectorApi {
 
     /// Health check for Vector
     rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
-}
-
-/// Health check request
-message HealthCheckRequest {
-    string component = 1;  // Component name (e.g., "vector", "cap")
-}
-
-/// Health check response
-message HealthCheckResponse {
-    bool healthy = 1;      // Component health status
-    string status = 2;     // Status message
-    map<string, string> metrics = 3;  // Health metrics
 }

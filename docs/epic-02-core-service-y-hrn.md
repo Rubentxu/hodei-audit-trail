@@ -1025,7 +1025,117 @@ pub struct ConnectionPool {
 
 ---
 
-**Versión**: 1.0  
-**Fecha**: 2025-01-15  
-**Estado**: En Planificación  
+**Versión**: 1.1  
+**Fecha**: 2025-11-06  
+**Estado**: En Desarrollo (PARCIAL - ~35% completo)  
 **Épica Padre**: Hodei Audit Service
+
+---
+
+## 📊 Estado Actual de Implementación (Actualizado: 2025-11-06)
+
+### ✅ COMPLETADO (35%)
+
+**Historia 2.1 - Servicio gRPC Principal:**
+- ✅ `main.rs` implementado con estructura base
+- ✅ `AuditControlService` (puerto 50052) - estructura base
+- ✅ `AuditQueryService` (puerto 50053) - estructura base  
+- ✅ Health checks básico implementado
+- ✅ Logging estructurado con tracing
+- ✅ Graceful shutdown configurado
+- ✅ Puerto 50051 para Vector API
+
+**Historia 2.2 - Sistema HRN:**
+- ✅ `Hrn` struct con validaciones completas
+- ✅ Parser HRN (parse, to_string)
+- ✅ Operaciones: parent(), is_child_of()
+- ✅ `HrnMetadata` struct
+- ✅ Trait `HrnResolver` definido
+- ✅ Tests unitarios básicos
+
+**Infraestructura:**
+- ✅ Estructura de workspace con 4 crates
+- ✅ Protocol buffers definidos
+- ✅ Tests de integración básicos
+- ✅ Dependencias base configuradas
+
+### ⚠️ EN PROGRESO / PARCIAL
+
+**Historia 2.1 - Servicio gRPC:**
+- ⚠️ `AuditControlService` - TODOs en persistencia y Vector integration
+- ⚠️ `AuditQueryService` - TODOs en query engine real
+- ⚠️ `AuditCryptoService` - solo módulo crypto, falta servidor gRPC
+
+### ❌ PENDIENTE (65%)
+
+**Historia 2.2 - Sistema HRN:**
+- ❌ HrnResolver con LRU cache (TTL configurable)
+- ❌ Búsqueda con patrones (wildcards)
+- ❌ Resolución async con base de datos
+- ❌ Cache invalidation strategy
+
+**Historia 2.3 - Event Enrichment Pipeline:**
+- ❌ EventEnricher struct
+- ❌ Enriquecimiento con HRN metadata
+- ❌ Geo-location (MaxMindDB)
+- ❌ User context integration
+- ❌ Calculated fields
+- ❌ Pipeline async no-bloqueante
+
+**Historia 2.4 - Query Engine:**
+- ❌ AuditQuery struct con filtros
+- ❌ QueryEngine con execute()
+- ❌ SQL optimization
+- ❌ Cursor-based pagination
+- ❌ Sorting y limiting
+- ❌ Performance optimization
+
+**Historia 2.5 - Storage Backend Tiered:**
+- ❌ ClickHouseStorage implementation
+- ❌ S3Storage implementation
+- ❌ GlacierStorage implementation
+- ❌ TieredStorage orchestrator
+- ❌ Lifecycle policies
+- ❌ Partitioning strategy
+
+**Historia 2.6 - ClickHouse Integration:**
+- ❌ clickhouse-rs client
+- ❌ Schema creation
+- ❌ Batch inserts optimizados
+- ❌ Connection pooling
+- ❌ Retry policies
+- ❌ Performance monitoring
+
+**Historia 2.7 - S3/MinIO Integration:**
+- ❌ aws-sdk-s3 client
+- ❌ Parquet writer
+- ❌ Partitioning strategy
+- ❌ Compression
+- ❌ Lifecycle rules
+- ❌ Athena/Trino integration
+
+### 🚨 PROBLEMAS IDENTIFICADOS
+
+1. **Backend de Storage Inexistente**: Los servicios retornan datos vacíos por falta de implementación
+2. **Event Enrichment Faltante**: No hay pipeline de enriquecimiento de eventos
+3. **Query Engine No Implementado**: Las consultas no acceden a datos reales
+4. **Cache HRN Faltante**: Sin optimización para resolución de HRN
+5. **Tests de Integración**: Solo tests básicos, faltan tests comprensivos
+6. **Performance**: Sin benchmarks ni métricas reales
+
+### 📋 PRÓXIMOS PASOS RECOMENDADOS
+
+**Prioridad ALTA:**
+1. Completar implementación de storage backend (ClickHouse)
+2. Implementar EventEnricher pipeline
+3. Conectar AuditControlService con storage real
+
+**Prioridad MEDIA:**
+4. Implementar QueryEngine con filtros
+5. Completar HrnResolver con LRU cache
+6. Implementar AuditCryptoService gRPC
+
+**Prioridad BAJA:**
+7. S3/MinIO integration
+8. Performance tuning
+9. Métricas y monitoring avanzado

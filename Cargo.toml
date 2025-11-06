@@ -1,15 +1,3 @@
-[package]
-name = "hodei-audit"
-version = "0.1.0"
-edition = "2021"
-authors = ["Hodei Team"]
-description = "Hodei Audit Service - Ecosistema Centralizado de Auditoría"
-license = "MIT"
-repository = "https://github.com/your-org/hodei-audit"
-keywords = ["audit", "grpc", "cloudtrail", "compliance", "rust"]
-categories = ["network-programming", "web-programming"]
-readme = "README.md"
-
 [workspace]
 members = [
     "hodei-audit-proto",
@@ -20,29 +8,46 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-# Dependencies shared across crates
-
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.48.0", features = ["full", "signal"] }
 async-trait = "0.1"
+
+# gRPC
+tonic = "0.14"
+prost = "0.14"
+prost-types = "0.14"
+tonic-prost = "0.14"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Utilities
-uuid = { version = "1.0", features = ["v4", "serde"] }
+uuid = { version = "1.18", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
 
+# Cryptography (para crypto.rs)
+ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+sha2 = "0.10"
+signature = "2.0"
+hex = "0.4"
+rand = "0.9.2"
+
+# LRU Cache
+lru = "0.16.2"
+
+# HTTP client
+reqwest = { version = "0.12.24", features = ["json", "gzip", "brotli", "deflate"] }
+
 # Testing
-rstest = "0.18"
-tempfile = "3.0"
+rstest = "0.26.1"
+tempfile = "3.23.0"
 
 [profile.dev]
 opt-level = 0

@@ -1,12 +1,17 @@
-//! Módulo de criptografía
+//! Criptografía para Hodei Audit Service
+//!
+//! Implementa funciones de hashing, firma y verificación
 
-use anyhow::Result;
-use ed25519_dalek::{Signer as EdSigner, SigningKey, Verifier as EdVerifier, VerifyingKey};
+use ed25519_dalek::{
+    Signature as EdSignature, Signer as EdSigner, SigningKey, Verifier as EdVerifier, VerifyingKey,
+};
 use sha2::{Digest, Sha256};
-use signature::{Signature, Signer, Verifier};
 
 /// Generar digest SHA-256 para un evento
-pub fn generate_digest(event_data: &str, previous_hash: Option<&str>) -> Result<String> {
+pub fn generate_digest(
+    event_data: &str,
+    previous_hash: Option<&str>,
+) -> Result<String, anyhow::Error> {
     let mut hasher = Sha256::new();
 
     if let Some(prev_hash) = previous_hash {
@@ -20,14 +25,23 @@ pub fn generate_digest(event_data: &str, previous_hash: Option<&str>) -> Result<
 }
 
 /// Firmar digest con ed25519
-pub fn sign_digest(digest: &str, private_key: &SigningKey) -> Result<String> {
+pub fn sign_digest(digest: &str, private_key: &SigningKey) -> Result<String, anyhow::Error> {
     let signature = private_key.sign(digest.as_bytes());
     Ok(hex::encode(signature.to_bytes()))
 }
 
 /// Verificar firma de digest
-pub fn verify_digest(digest: &str, signature: &str, public_key: &VerifyingKey) -> Result<bool> {
+pub fn verify_digest(
+    digest: &str,
+    signature: &str,
+    public_key: &VerifyingKey,
+) -> Result<bool, anyhow::Error> {
     let signature_bytes = hex::decode(signature)?;
+
+    if signature_bytes.len() < 64 {
+        return Err(anyhow::anyhow!("Invalid signature length"));
+    }
+
     let signature_bytes = signature_bytes[..64]
         .try_into()
         .map_err(|_| anyhow::anyhow!("Invalid signature length"))?;

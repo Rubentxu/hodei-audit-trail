@@ -21,7 +21,10 @@ impl AuditClient {
     pub async fn new(config: AuditConfig) -> Result<Self, AuditError> {
         let channel = Channel::from_shared(config.endpoint.clone())
             .context("Invalid endpoint")
-            .map_err(AuditError::ConfigurationError)?;
+            .map_err(|e: anyhow::Error| AuditError::ConfigurationError(e.to_string()))?
+            .connect()
+            .await
+            .map_err(|e| AuditError::ConfigurationError(e.to_string()))?;
 
         Ok(Self {
             config,

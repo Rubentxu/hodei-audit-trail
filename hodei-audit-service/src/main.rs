@@ -1,52 +1,84 @@
 //! Hodei Audit Service
 //!
 //! Servicio centralizado de auditoría con arquitectura CAP/ARP
+//! Integrado con Vector.dev para ingesta y fan-out
+//!
+//! Servicios gRPC:
+//! - Puerto 50052: AuditControlService (Ingestión)
+//! - Puerto 50053: AuditQueryService (Query/Analytics)
+//! - Puerto 50054: AuditCryptoService (Criptografía/Compliance)
+//! - Puerto 50051: VectorApi (CAP → Vector communication)
 
 use anyhow::Result;
-use std::net::SocketAddr;
-use tonic::transport::Server;
-use tracing::{info, warn};
+use std::env;
+use tokio::signal;
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod crypto;
 mod grpc;
 mod storage;
-mod crypto;
 
-use grpc::audit_control_server::AuditControlServer;
-use grpc::audit_query_server::AuditQueryServer;
+use grpc::{GrpcConfig, run_grpc_server};
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     // Inicializar logging
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "hodei_audit=debug,tower=debug,tonic=debug".into()),
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_thread_ids(true)
+                .with_level(true),
         )
-        .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let addr: SocketAddr = "[::1]:50052".parse()?;
+    info!("🚀 Starting Hodei Audit Service");
+    info!("Version: {}", env!("CARGO_PKG_VERSION"));
 
-    info!("🚀 Iniciando Hodei Audit Service en {}", addr);
-    info!("📋 Puertos:");
-    info!("   - Puerto 50052: Ingestión (AuditControlService)");
-    info!("   - Puerto 50053: Query (AuditQueryService)");
-    info!("   - Puerto 50054: Crypto/Digest (AuditCryptoService)");
+    // Cargar configuración desde variables de entorno
+    let config = GrpcConfig {
+        audit_control_addr: env::var("AUDIT_CONTROL_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:50052".to_string()),
+        audit_query_addr: env::var("AUDIT_QUERY_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:50053".to_string()),
+        audit_crypto_addr: env::var("AUDIT_CRYPTO_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:50054".to_string()),
+        vector_api_addr: env::var("VECTOR_API_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:50051".to_string()),
+    };
 
-    // TODO: Implementar servicios gRPC
-    // let audit_control = grpc::AuditControlService::new();
-    // let audit_query = grpc::AuditQueryService::new();
-    // let audit_crypto = grpc::AuditCryptoService::new();
+    info!("📡 gRPC Configuration:");
+    info!("  - AuditControl: {}", config.audit_control_addr);
+    info!("  - AuditQuery: {}", config.audit_query_addr);
+    info!("  - AuditCrypto: {}", config.audit_crypto_addr);
+    info!("  - VectorApi: {}", config.vector_api_addr);
 
-    warn!("⚠️  Servicios gRPC aún no implementados");
+    // Setup graceful shutdown
+    let shutdown_signal = async {
+        signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+        info!("🛑 Received Ctrl+C, starting graceful shutdown...");
+    };
 
-    // Server::builder()
-    //     .add_service(AuditControlServer::new(audit_control))
-    //     .add_service(AuditQueryServer::new(audit_query))
-    //     .serve(addr)
-    //     .await?;
+    // Ejecutar servidor gRPC con graceful shutdown
+    tokio::select! {
+        result = run_grpc_server(config) => {
+            match result {
+                Ok(_) => {
+                    info!("✅ gRPC server shutdown completed");
+                }
+                Err(e) => {
+                    error!("❌ gRPC server error: {}", e);
+                    anyhow::bail!("gRPC server error: {}", e);
+                }
+            }
+        }
+        _ = shutdown_signal => {
+            info!("🛑 Graceful shutdown initiated");
+        }
+    }
 
-    info!("✅ Servicio iniciado correctamente");
     Ok(())
 }

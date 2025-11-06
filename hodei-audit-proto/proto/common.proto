@@ -1,0 +1,37 @@
+// Common types shared across all services
+// Health checks, errors, and other common messages
+
+syntax = "proto3";
+
+package hodei.audit;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
+option java_package = "com.hodei.audit";
+option java_outer_classname = "CommonProto";
+option csharp_namespace = "Hodei.Audit";
+
+/// Health check request
+message HealthCheckRequest {
+    string service_name = 1;  // Name of the service checking health
+    string component = 2;     // Component name (for Vector API)
+}
+
+/// Health check response
+message HealthCheckResponse {
+    HealthStatus status = 1;  // Service health status
+    string message = 2;       // Optional status message
+    map<string, string> details = 3;  // Additional details
+    bool healthy = 4;         // Simple boolean for Vector API
+    string status_msg = 5;    // Status message for Vector API
+    map<string, string> metrics = 6;  // Health metrics
+}
+
+/// Health status enum
+enum HealthStatus {
+    STATUS_UNKNOWN = 0;
+    STATUS_SERVING = 1;      // Service is healthy
+    STATUS_NOT_SERVING = 2;  // Service is unhealthy
+    STATUS_MAINTENANCE = 3;  // Service is under maintenance
+}

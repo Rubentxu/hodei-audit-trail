@@ -4,10 +4,14 @@
 #[async_trait::async_trait]
 pub trait StorageBackend: Send + Sync {
     /// Guardar evento
-    async fn store_event(&self, event: &hodei_audit_types::AuditEvent) -> Result<(), anyhow::Error>;
+    async fn store_event(&self, event: &hodei_audit_proto::AuditEvent)
+    -> Result<(), anyhow::Error>;
 
     /// Obtener eventos
-    async fn query_events(&self, query: &str) -> Result<Vec<hodei_audit_types::AuditEvent>, anyhow::Error>;
+    async fn query_events(
+        &self,
+        query: &str,
+    ) -> Result<Vec<hodei_audit_proto::AuditEvent>, anyhow::Error>;
 
     /// Verificar salud del backend
     async fn health_check(&self) -> Result<bool, anyhow::Error>;
@@ -26,13 +30,19 @@ impl ClickHouseBackend {
 
 #[async_trait::async_trait]
 impl StorageBackend for ClickHouseBackend {
-    async fn store_event(&self, event: &hodei_audit_types::AuditEvent) -> Result<(), anyhow::Error> {
-        tracing::info!("Storing event in ClickHouse: {:?}", event.event_name);
+    async fn store_event(
+        &self,
+        event: &hodei_audit_proto::AuditEvent,
+    ) -> Result<(), anyhow::Error> {
+        tracing::info!("Storing event in ClickHouse: {:?}", event.action);
         // TODO: Implementar almacenamiento en ClickHouse
         Ok(())
     }
 
-    async fn query_events(&self, query: &str) -> Result<Vec<hodei_audit_types::AuditEvent>, anyhow::Error> {
+    async fn query_events(
+        &self,
+        query: &str,
+    ) -> Result<Vec<hodei_audit_proto::AuditEvent>, anyhow::Error> {
         tracing::info!("Querying ClickHouse: {}", query);
         // TODO: Implementar query en ClickHouse
         Ok(vec![])
@@ -57,13 +67,19 @@ impl S3Backend {
 
 #[async_trait::async_trait]
 impl StorageBackend for S3Backend {
-    async fn store_event(&self, event: &hodei_audit_types::AuditEvent) -> Result<(), anyhow::Error> {
-        tracing::info!("Storing event in S3: {:?}", event.event_name);
+    async fn store_event(
+        &self,
+        event: &hodei_audit_proto::AuditEvent,
+    ) -> Result<(), anyhow::Error> {
+        tracing::info!("Storing event in S3: {:?}", event.action);
         // TODO: Implementar almacenamiento en S3
         Ok(())
     }
 
-    async fn query_events(&self, query: &str) -> Result<Vec<hodei_audit_types::AuditEvent>, anyhow::Error> {
+    async fn query_events(
+        &self,
+        query: &str,
+    ) -> Result<Vec<hodei_audit_proto::AuditEvent>, anyhow::Error> {
         tracing::info!("Querying S3: {}", query);
         // TODO: Implementar query en S3
         Ok(vec![])

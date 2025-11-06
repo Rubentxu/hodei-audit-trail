@@ -6,6 +6,7 @@ syntax = "proto3";
 package hodei.audit;
 
 import "google/protobuf/timestamp.proto";
+import "audit_query.proto";
 
 option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
 option java_package = "com.hodei.audit";

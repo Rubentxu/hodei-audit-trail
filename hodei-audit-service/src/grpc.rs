@@ -1,144 +1,191 @@
-//! gRPC Services
+//! gRPC Services Implementation
+//!
+//! Implementación de los servicios gRPC para el Hodei Audit Service
+//! Incluye: AuditControl, AuditQuery, AuditCrypto y VectorApi
 
-// TODO: Implementar servicios gRPC
-// use tonic::{transport::Server, Request, Response, Status};
+use std::sync::Arc;
+use tonic::{Request, Response, Status, transport::Server};
+use tracing::info;
 
-// pub mod audit_control_server {
-//     use super::*;
-//     use crate::audit_control_service_server::AuditControlService;
-//     use hodei_audit_proto::audit_control::*;
+// Re-exports de los módulos
+pub mod audit_control_server;
+pub mod audit_crypto_server;
+pub mod audit_query_server;
+pub mod vector_api_server;
 
-//     #[derive(Debug, Default)]
-//     pub struct AuditControlServiceImpl {}
+pub use audit_control_server::AuditControlServiceImpl;
+pub use audit_crypto_server::AuditCryptoServiceImpl;
+pub use audit_query_server::AuditQueryServiceImpl;
+pub use vector_api_server::VectorApiServiceImpl;
 
-//     #[tonic::async_trait]
-//     impl AuditControlService for AuditControlServiceImpl {
-//         async fn publish_event(
-//             &self,
-//             request: Request<PublishEventRequest>,
-//         ) -> Result<Response<PublishEventResponse>, Status> {
-//             let req = request.into_inner();
-//             tracing::info!("Received PublishEvent request: {:?}", req);
+/// Configuración del servidor gRPC
+#[derive(Debug, Clone)]
+pub struct GrpcConfig {
+    pub audit_control_addr: String, // Puerto 50052
+    pub audit_query_addr: String,   // Puerto 50053
+    pub audit_crypto_addr: String,  // Puerto 50054
+    pub vector_api_addr: String,    // Puerto 50051
+}
 
-//             // TODO: Implementar lógica de publicación
-//             let response = PublishEventResponse {
-//                 success: true,
-//                 event_id: "test-id".to_string(),
-//             };
+impl Default for GrpcConfig {
+    fn default() -> Self {
+        Self {
+            audit_control_addr: "0.0.0.0:50052".to_string(),
+            audit_query_addr: "0.0.0.0:50053".to_string(),
+            audit_crypto_addr: "0.0.0.0:50054".to_string(),
+            vector_api_addr: "0.0.0.0:50051".to_string(),
+        }
+    }
+}
 
-//             Ok(Response::new(response))
-//         }
+/// Servicio de salud para monitoreo
+#[derive(Debug, Default)]
+pub struct HealthService {
+    pub status: Arc<std::sync::atomic::AtomicU32>, // 0=Unknown, 1=Serving, 2=NotServing
+}
 
-//         async fn publish_batch(
-//             &self,
-//             request: Request<PublishBatchRequest>,
-//         ) -> Result<Response<PublishBatchResponse>, Status> {
-//             let req = request.into_inner();
-//             tracing::info!("Received PublishBatch request with {} events", req.events.len());
+impl HealthService {
+    pub fn new() -> Self {
+        Self {
+            status: Arc::new(std::sync::atomic::AtomicU32::new(1)), // Default: Serving
+        }
+    }
 
-//             // TODO: Implementar lógica de batch
-//             let response = PublishBatchResponse {
-//                 success: true,
-//                 accepted_count: req.events.len() as u64,
-//             };
+    pub fn set_status(&self, status: u32) {
+        self.status
+            .store(status, std::sync::atomic::Ordering::SeqCst);
+    }
 
-//             Ok(Response::new(response))
-//         }
-//     }
-// }
+    pub fn get_status(&self) -> u32 {
+        self.status.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
 
-// pub mod audit_query_server {
-//     use super::*;
-//     use crate::audit_query_service_server::AuditQueryService;
-//     use hodei_audit_proto::audit_query::*;
+impl Clone for HealthService {
+    fn clone(&self) -> Self {
+        Self {
+            status: self.status.clone(),
+        }
+    }
+}
 
-//     #[derive(Debug, Default)]
-//     pub struct AuditQueryServiceImpl {}
+/// Función principal para inicializar el servidor gRPC
+/// Ejecuta todos los servicios en paralelo
+pub async fn run_grpc_server(
+    config: GrpcConfig,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Starting Hodei Audit Service gRPC servers...");
 
-//     #[tonic::async_trait]
-//     impl AuditQueryService for AuditQueryServiceImpl {
-//         async fn query_events(
-//             &self,
-//             request: Request<AuditQueryRequest>,
-//         ) -> Result<Response<AuditQueryResponse>, Status> {
-//             let req = request.into_inner();
-//             tracing::info!("Received QueryEvents request: {:?}", req);
+    // Crear instancia del health service compartido
+    let health_service = HealthService::new();
+    health_service.set_status(1); // SERVING
 
-//             // TODO: Implementar lógica de query
-//             let response = AuditQueryResponse {
-//                 events: vec![],
-//                 next_token: None,
-//             };
+    // Inicializar servicios
+    let audit_control = AuditControlServiceImpl::new();
+    let audit_query = AuditQueryServiceImpl::new();
+    let audit_crypto = AuditCryptoServiceImpl::new();
+    let vector_api = VectorApiServiceImpl::new();
 
-//             Ok(Response::new(response))
-//         }
+    // Spawner threads para cada servicio
+    let handles = vec![
+        // Audit Control Service (Puerto 50052)
+        tokio::spawn(run_audit_control_server(
+            config.audit_control_addr.clone(),
+            audit_control,
+        )),
+        // Audit Query Service (Puerto 50053)
+        tokio::spawn(run_audit_query_server(
+            config.audit_query_addr.clone(),
+            audit_query,
+        )),
+        // Audit Crypto Service (Puerto 50054)
+        tokio::spawn(run_audit_crypto_server(
+            config.audit_crypto_addr.clone(),
+            audit_crypto,
+        )),
+        // Vector API Service (Puerto 50051)
+        tokio::spawn(run_vector_api_server(
+            config.vector_api_addr.clone(),
+            vector_api,
+        )),
+    ];
 
-//         async fn resolve_hrn(
-//             &self,
-//             request: Request<ResolveHrnRequest>,
-//         ) -> Result<Response<ResolveHrnResponse>, Status> {
-//             let req = request.into_inner();
-//             tracing::info!("Received ResolveHRN request: {:?}", req);
+    info!("All gRPC servers started successfully");
+    info!("  - AuditControlService: {}", config.audit_control_addr);
+    info!("  - AuditQueryService: {}", config.audit_query_addr);
+    info!("  - AuditCryptoService: {}", config.audit_crypto_addr);
+    info!("  - VectorApi: {}", config.vector_api_addr);
 
-//             // TODO: Implementar resolución HRN
-//             let response = ResolveHrnResponse {
-//                 metadata: hodei_audit_proto::hrn::HrnMetadata {
-//                     resource_type: "test".to_string(),
-//                     tenant_id: "test-tenant".to_string(),
-//                     region: "global".to_string(),
-//                     path: "/test".to_string(),
-//                 },
-//             };
+    // Esperar a que todos los servicios terminen
+    for handle in handles {
+        handle.await??;
+    }
 
-//             Ok(Response::new(response))
-//         }
-//     }
-// }
+    Ok(())
+}
 
-// pub mod audit_crypto_server {
-//     use super::*;
-//     use crate::audit_crypto_service_server::AuditCryptoService;
-//     use hodei_audit_proto::audit_crypto::*;
+async fn run_audit_control_server(
+    addr: String,
+    service: AuditControlServiceImpl,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Starting AuditControlService on {}", addr);
 
-//     #[derive(Debug, Default)]
-//     pub struct AuditCryptoServiceImpl {}
+    let server = Server::builder()
+        .add_service(
+            hodei_audit_proto::audit_control_service_server::AuditControlServiceServer::new(service),
+        )
+        .serve(addr.parse()?)
+        .await?;
 
-//     #[tonic::async_trait]
-//     impl AuditCryptoService for AuditCryptoServiceImpl {
-//         async fn verify_digest(
-//             &self,
-//             request: Request<VerifyDigestRequest>,
-//         ) -> Result<Response<VerifyDigestResponse>, Status> {
-//             let req = request.into_inner();
-//             tracing::info!("Received VerifyDigest request: {:?}", req);
+    info!("AuditControlService stopped");
+    Ok(server)
+}
 
-//             // TODO: Implementar verificación de digest
-//             let response = VerifyDigestResponse {
-//                 valid: true,
-//                 previous_hash: None,
-//             };
+async fn run_audit_query_server(
+    addr: String,
+    service: AuditQueryServiceImpl,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Starting AuditQueryService on {}", addr);
 
-//             Ok(Response::new(response))
-//         }
+    let server = Server::builder()
+        .add_service(hodei_audit_proto::audit_query_service_server::AuditQueryServiceServer::new(service))
+        .serve(addr.parse()?)
+        .await?;
 
-//         async fn get_public_keys(
-//             &self,
-//             request: Request<GetPublicKeysRequest>,
-//         ) -> Result<Response<GetPublicKeysResponse>, Status> {
-//             let req = request.into_inner();
-//             tracing::info!("Received GetPublicKeys request: {:?}", req);
+    info!("AuditQueryService stopped");
+    Ok(server)
+}
 
-//             // TODO: Implementar obtención de claves públicas
-//             let response = GetPublicKeysResponse {
-//                 keys: vec![],
-//             };
+async fn run_audit_crypto_server(
+    addr: String,
+    service: AuditCryptoServiceImpl,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Starting AuditCryptoService on {}", addr);
 
-//             Ok(Response::new(response))
-//         }
-//     }
-// }
+    let server = Server::builder()
+        .add_service(
+            hodei_audit_proto::audit_crypto_service_server::AuditCryptoServiceServer::new(service),
+        )
+        .serve(addr.parse()?)
+        .await?;
 
-// Placeholder
-pub fn init_grpc() {
-    // TODO: Inicializar servicios gRPC
+    info!("AuditCryptoService stopped");
+    Ok(server)
+}
+
+async fn run_vector_api_server(
+    addr: String,
+    service: VectorApiServiceImpl,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Starting VectorApi on {}", addr);
+
+    let server = Server::builder()
+        .add_service(hodei_audit_proto::vector_api_server::VectorApiServer::new(
+            service,
+        ))
+        .serve(addr.parse()?)
+        .await?;
+
+    info!("VectorApi stopped");
+    Ok(server)
 }
