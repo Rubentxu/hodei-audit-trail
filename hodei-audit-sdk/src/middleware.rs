@@ -1,39 +1,186 @@
-//! Middleware para captura automática de eventos
+//! Middleware de auditoría para Axum
+//!
+//! Este módulo implementa el middleware que captura automáticamente
+//! las requests HTTP y las envía como eventos de auditoría.
 
-/// Middleware de auditoría
-pub struct AuditMiddleware {
-    // TODO: Implementar middleware
+use crate::config::AuditSdkConfig;
+use crate::models::AuditEvent;
+use bytes::Bytes;
+use http::{Request, Response};
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use tower::{Layer, Service};
+use tracing::debug;
+
+/// Layer de auditoría que implementa el middleware Axum
+#[derive(Debug, Clone)]
+pub struct AuditLayer {
+    /// Configuración del SDK
+    config: Arc<AuditSdkConfig>,
 }
 
-/// Middleware trait para integración con frameworks
-#[async_trait::async_trait]
-pub trait AuditMiddlewareExt {
-    /// Interceptar request
-    async fn intercept(&self, _request: &mut Request) -> Result<(), crate::error::AuditError> {
-        Ok(())
+impl AuditLayer {
+    /// Crear un nuevo layer de auditoría
+    pub fn new(config: AuditSdkConfig) -> Self {
+        Self {
+            config: Arc::new(config),
+        }
+    }
+}
+
+impl<S> Layer<S> for AuditLayer {
+    type Service = AuditService<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        AuditService {
+            config: self.config.clone(),
+            service,
+        }
+    }
+}
+
+/// Service que implementa el middleware de auditoría
+#[derive(Debug, Clone)]
+pub struct AuditService<S> {
+    /// Configuración del SDK
+    config: Arc<AuditSdkConfig>,
+    /// Service inner
+    service: S,
+}
+
+impl<S, B> Service<Request<B>> for AuditService<S>
+where
+    S: Service<Request<B>, Response = Response<Bytes>> + Send + Clone + 'static,
+    S::Future: Send + 'static,
+    B: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
     }
 
-    /// Interceptar response
-    async fn on_response(&self, _response: &Response) -> Result<(), crate::error::AuditError> {
-        Ok(())
+    fn call(&mut self, request: Request<B>) -> Self::Future {
+        let config = self.config.clone();
+        let mut service = self.service.clone();
+
+        Box::pin(async move {
+            // Extract audit data (borrow request immutably)
+            let method = request.method().clone();
+            let path = request.uri().path().to_string();
+            let user_id = request
+                .headers()
+                .get("x-user-id")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            let tenant_id = request
+                .headers()
+                .get("x-tenant-id")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+
+            // Call next service
+            let response = service.call(request).await?;
+
+            // Create audit event (non-blocking)
+            let event = AuditEvent {
+                event_name: format!("{} {}", method, path),
+                event_category: 0, // Management event
+                hrn: format!(
+                    "hrn:hodei:{}:{}:global:resource/{}",
+                    config.service_name,
+                    tenant_id.as_deref().unwrap_or("unknown"),
+                    path
+                ),
+                user_id: user_id.unwrap_or_else(|| "anonymous".to_string()),
+                tenant_id: tenant_id.unwrap_or_else(|| "unknown".to_string()),
+                trace_id: "no-trace".to_string(),
+                resource_path: path,
+                http_method: Some(method.to_string()),
+                http_status: Some(response.status().as_u16() as i32),
+                source_ip: None,
+                user_agent: None,
+                additional_data: None,
+            };
+
+            // Add to batch queue (async, non-blocking)
+            // In a full implementation, this would add to a batch queue
+            // For now, we just log it
+            debug!("Created audit event: {:?}", event.event_name);
+
+            Ok(response)
+        })
     }
 }
 
-impl AuditMiddleware {
-    /// Crear nuevo middleware
-    pub fn new() -> Self {
-        Self {}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::StatusCode;
+    use std::time::Duration;
+
+    #[test]
+    fn test_audit_layer_creation() {
+        let config = AuditSdkConfig::builder()
+            .service_name("test-service")
+            .tenant_id("test-tenant")
+            .build()
+            .unwrap();
+
+        let layer = AuditLayer::new(config);
+        assert_eq!(layer.config.service_name, "test-service");
+        assert_eq!(layer.config.tenant_id, Some("test-tenant".to_string()));
     }
-}
 
-/// Request wrapper (placeholder)
-#[derive(Debug)]
-pub struct Request {
-    // Placeholder
-}
+    #[test]
+    fn test_audit_layer_builder() {
+        let config = AuditSdkConfig::builder()
+            .service_name("my-service")
+            .tenant_id("tenant-123")
+            .audit_service_url("http://audit:50052")
+            .batch_size(50)
+            .batch_timeout(Duration::from_millis(200))
+            .enable_request_body(false)
+            .enable_response_body(true)
+            .build()
+            .unwrap();
 
-/// Response wrapper (placeholder)
-#[derive(Debug)]
-pub struct Response {
-    // Placeholder
+        assert_eq!(config.service_name, "my-service");
+        assert_eq!(config.tenant_id, Some("tenant-123".to_string()));
+        assert_eq!(config.audit_service_url, "http://audit:50052");
+        assert_eq!(config.batch_size, 50);
+        assert_eq!(config.batch_timeout, Duration::from_millis(200));
+        assert!(!config.enable_request_body);
+        assert!(config.enable_response_body);
+    }
+
+    #[test]
+    fn test_default_configuration() {
+        let config = AuditSdkConfig::default();
+
+        assert_eq!(config.service_name, "unknown-service");
+        assert_eq!(config.batch_size, 100);
+        assert_eq!(config.batch_timeout, Duration::from_millis(100));
+        assert!(config.enable_request_body);
+        assert!(!config.enable_response_body);
+        assert_eq!(config.max_retries, 3);
+    }
+
+    #[test]
+    fn test_config_display() {
+        let config = AuditSdkConfig::builder()
+            .service_name("test-service")
+            .tenant_id("test-tenant")
+            .build()
+            .unwrap();
+
+        let config_str = format!("{}", config);
+        assert!(config_str.contains("test-service"));
+        assert!(config_str.contains("test-tenant"));
+        assert!(config_str.contains("http://localhost:50052"));
+    }
 }

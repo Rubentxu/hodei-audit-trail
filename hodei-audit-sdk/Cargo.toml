@@ -12,6 +12,13 @@ categories = ["network-programming", "web-programming"]
 name = "hodei_audit_sdk"
 path = "src/lib.rs"
 
+[features]
+default = ["request-body", "response-body"]
+request-body = []
+response-body = []
+hrn-resolution = []
+custom-enricher = []
+
 [dependencies]
 # Workspace dependencies
 tokio = { workspace = true }
@@ -34,6 +41,12 @@ reqwest = { workspace = true }
 
 # Error handling
 thiserror = { workspace = true }
+
+# HTTP types and middleware
+http = "1.0"
+bytes = "1.0"
+tower = "0.4"
+futures-core = "0.3"
 
 [dev-dependencies]
 rstest = { workspace = true }
