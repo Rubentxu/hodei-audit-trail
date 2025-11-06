@@ -1,0 +1,48 @@
+// Vector API - Communication between CAP and Vector.dev
+// Simple contract: batch → confirmation
+
+syntax = "proto3";
+
+package hodei.audit;
+
+import "audit_event.proto";
+
+option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
+option java_package = "com.hodei.audit";
+option java_outer_classname = "VectorApiProto";
+option csharp_namespace = "Hodei.Audit";
+
+/// Request to send batch of events to Vector
+message EventBatchRequest {
+    repeated AuditEvent events = 1;  // Events to send
+}
+
+/// Response confirming batch receipt
+message EventBatchResponse {
+    bool success = 1;           // true = received, false = rejected
+    string message = 2;         // Optional message
+    string batch_id = 3;        // Batch ID assigned by Vector
+    uint32 received_count = 4;  // Number of events received
+}
+
+/// Vector API Service
+/// Puerto 50051 - CAP → Vector communication
+service VectorApi {
+    /// Send batch of events (simple contract)
+    rpc SendEventBatch(EventBatchRequest) returns (EventBatchResponse);
+
+    /// Health check for Vector
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+/// Health check request
+message HealthCheckRequest {
+    string component = 1;  // Component name (e.g., "vector", "cap")
+}
+
+/// Health check response
+message HealthCheckResponse {
+    bool healthy = 1;      // Component health status
+    string status = 2;     // Status message
+    map<string, string> metrics = 3;  // Health metrics
+}

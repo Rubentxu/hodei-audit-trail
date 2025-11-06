@@ -1,0 +1,39 @@
+[package]
+name = "hodei-audit-service"
+version = "0.1.0"
+edition = "2021"
+description = "Hodei Audit Service (CAP) - Centralized Audit Point"
+license = "MIT"
+
+[dependencies]
+# Workspace dependencies
+hodei-audit-proto = { path = "../hodei-audit-proto" }
+hodei-audit-types = { path = "../hodei-audit-types" }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# gRPC
+tonic = "0.11"
+prost = "0.12"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
+
+# HTTP server
+axum = "0.7"
+
+[dev-dependencies]
+tempfile = "3.0"

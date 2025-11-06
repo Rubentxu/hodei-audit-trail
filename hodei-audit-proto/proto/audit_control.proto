@@ -1,0 +1,104 @@
+// Audit Control Service - Ingestion API
+// This service handles receiving audit events from applications (ARPs)
+
+syntax = "proto3";
+
+package hodei.audit;
+
+import "audit_event.proto";
+
+option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
+option java_package = "com.hodei.audit";
+option java_outer_classname = "AuditControlProto";
+option csharp_namespace = "Hodei.Audit";
+
+/// Request to publish a single audit event
+message PublishEventRequest {
+    string tenant_id = 1;  // Tenant identifier
+    AuditEvent event = 2;  // The event to publish
+    PublishOptions options = 3;  // Optional publishing options
+}
+
+/// Response for PublishEvent
+message PublishEventResponse {
+    string receipt_id = 1;  // Unique receipt ID for the event
+    google.protobuf.Timestamp receipt_time = 2;  // When event was received
+}
+
+/// Request to publish multiple audit events (batch)
+message PublishBatchRequest {
+    string tenant_id = 1;  // Tenant identifier
+    repeated AuditEvent events = 2;  // Events to publish
+    BatchOptions options = 3;  // Optional batch options
+}
+
+/// Response for PublishBatch
+message PublishBatchResponse {
+    int32 received_count = 1;  // Number of events received
+    string batch_id = 2;       // Unique batch ID
+    google.protobuf.Timestamp receipt_time = 3;  // When batch was received
+    repeated string failed_events = 4;  // IDs of events that failed (if any)
+}
+
+/// Options for publishing a single event
+message PublishOptions {
+    bool flush_immediately = 1;  // Skip batching, send immediately
+    bool high_priority = 2;      // Mark as high priority
+    string correlation_id = 3;   // Override correlation ID
+    uint32 retry_count = 4;      // Number of retries attempted
+}
+
+/// Options for batch publishing
+message BatchOptions {
+    bool flush_immediately = 1;  // Flush batch immediately
+    uint32 max_retries = 2;      // Max retry attempts per event
+    Duration batch_timeout = 3;  // Maximum time to wait for batch fill
+    CompressionType compression = 4;  // Compression method
+}
+
+/// Compression type for batch events
+enum CompressionType {
+    COMPRESSION_NONE = 0;
+    COMPRESSION_GZIP = 1;
+    COMPRESSION_LZ4 = 2;
+    COMPRESSION_ZSTD = 3;
+}
+
+/// Duration wrapper (avoiding import of google/protobuf/duration.proto)
+message Duration {
+    int64 seconds = 1;
+    int32 nanos = 2;
+}
+
+/// Audit Control Service Definition
+/// Puerto 50052 - Ingestion API
+service AuditControlService {
+    /// Publish a single audit event
+    rpc PublishEvent(PublishEventRequest) returns (PublishEventResponse);
+
+    /// Publish a batch of audit events (recommended for performance)
+    rpc PublishBatch(PublishBatchRequest) returns (PublishBatchResponse);
+
+    /// Health check
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+/// Health check request
+message HealthCheckRequest {
+    string service_name = 1;  // Name of the service checking health
+}
+
+/// Health check response
+message HealthCheckResponse {
+    HealthStatus status = 1;  // Service health status
+    string message = 2;       // Optional status message
+    map<string, string> details = 3;  // Additional details
+}
+
+/// Health status enum
+enum HealthStatus {
+    STATUS_UNKNOWN = 0;
+    STATUS_SERVING = 1;      // Service is healthy
+    STATUS_NOT_SERVING = 2;  // Service is unhealthy
+    STATUS_MAINTENANCE = 3;  // Service is under maintenance
+}

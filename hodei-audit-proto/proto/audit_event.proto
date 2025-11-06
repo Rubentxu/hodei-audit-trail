@@ -1,0 +1,134 @@
+// Audit Event - Core message type for Hodei Audit Service
+// Inspired by AWS CloudTrail event structure
+
+syntax = "proto3";
+
+package hodei.audit;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
+option java_package = "com.hodei.audit";
+option java_outer_classname = "AuditEventProto";
+option csharp_namespace = "Hodei.Audit";
+
+/// Unique identifier for an event
+message EventId {
+    string value = 1; // UUID v4 format
+}
+
+/// Tenant identifier for multi-tenancy
+message TenantId {
+    string value = 1; // e.g., "tenant-123"
+}
+
+/// Hodei Resource Name - unique identifier for resources
+/// Format: hrn:partition:service:tenant:region:resource-type/resource-path
+message Hrn {
+    string partition = 1;   // "hodei"
+    string service = 2;     // "verified-permissions", "api", etc.
+    string tenant_id = 3;   // Tenant identifier
+    string region = 4;      // "eu-west-1", "global", etc.
+    string resource_type = 5; // "policy-store", "api", etc.
+    string resource_path = 6; // "default", "user-123", etc.
+}
+
+/// User identity information
+message UserIdentity {
+    string user_id = 1;        // Internal user ID
+    string username = 2;       // Username (if applicable)
+    string email = 3;          // Email (if applicable)
+    repeated string roles = 4; // User roles
+    string tenant_id = 5;      // Tenant the user belongs to
+}
+
+/// HTTP Request/Response context
+message HttpContext {
+    string method = 1;         // GET, POST, PUT, DELETE, etc.
+    string path = 2;           // Request path
+    string user_agent = 3;     // Client user agent
+    string source_ip = 4;      // Client IP address
+    int32 status_code = 5;     // HTTP response status code
+    uint64 content_length = 6; // Request/Response size in bytes
+}
+
+/// Event outcome
+enum Outcome {
+    OUTCOME_UNSPECIFIED = 0;
+    OUTCOME_SUCCESS = 1;     // Operation completed successfully
+    OUTCOME_FAILURE = 2;     // Operation failed
+    OUTCOME_ERROR = 3;       // Error occurred
+    OUTCOME_DENIED = 4;      // Access denied
+}
+
+/// Event category (CloudTrail-inspired)
+enum EventCategory {
+    CATEGORY_UNSPECIFIED = 0;
+    CATEGORY_MANAGEMENT = 1;  // Control plane operations
+    CATEGORY_DATA = 2;        // Data plane operations
+    CATEGORY_INSIGHT = 3;     // Anomaly detection
+}
+
+/// Management event type
+enum ManagementType {
+    MANAGEMENT_UNSPECIFIED = 0;
+    MANAGEMENT_CREATE = 1;      // Create operations
+    MANAGEMENT_UPDATE = 2;      // Update operations
+    MANAGEMENT_DELETE = 3;      // Delete operations
+    MANAGEMENT_CONFIGURE = 4;   // Configuration changes
+}
+
+/// Access type for data events
+enum AccessType {
+    ACCESS_UNSPECIFIED = 0;
+    ACCESS_READ = 1;   // Read operations
+    ACCESS_WRITE = 2;  // Write operations
+}
+
+/// The main Audit Event message
+message AuditEvent {
+    // Core identification
+    EventId event_id = 1;           // Unique event identifier
+    TenantId tenant_id = 2;         // Tenant this event belongs to
+    Hrn hrn = 3;                    // Resource being audited
+
+    // User context
+    UserIdentity user_identity = 4; // Who performed the action
+
+    // Request context
+    HttpContext http_context = 5;   // HTTP request/response details
+
+    // Event details
+    string action = 6;              // Action performed (e.g., "CreatePolicyStore")
+    EventCategory event_category = 7; // Type of event
+    ManagementType management_type = 8; // For management events
+    AccessType access_type = 9;        // For data events
+    bool read_only = 10;              // Read vs write operation
+
+    // Outcome
+    Outcome outcome = 11;            // SUCCESS, FAILURE, etc.
+    string error_code = 12;          // Error code (if any)
+    string error_message = 13;       // Error message (if any)
+
+    // Timing
+    google.protobuf.Timestamp event_time = 14;    // When event occurred
+    google.protobuf.Timestamp processed_at = 15;  // When event was processed
+
+    // Performance
+    uint64 latency_ms = 16;          // Operation latency in milliseconds
+
+    // Metadata
+    google.protobuf.Struct metadata = 17;    // Additional structured data
+    string correlation_id = 18;              // For request tracing
+    string trace_id = 19;                    // OpenTelemetry trace ID
+    string span_id = 20;                     // OpenTelemetry span ID
+
+    // CloudTrail compatibility
+    string event_source = 21;        // Service that generated the event
+    string event_version = 22;       // CloudTrail event version (e.g., "1.09")
+    bool management_event = 23;      // CloudTrail management event flag
+
+    // Enrichment
+    bool enriched = 24;              // Whether event has been enriched
+}

@@ -1,0 +1,251 @@
+// Audit Query Service - Query and Analytics API
+// This service handles querying and analyzing audit events
+
+syntax = "proto3";
+
+package hodei.audit;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
+option java_package = "com.hodei.audit";
+option java_outer_classname = "AuditQueryProto";
+option csharp_namespace = "Hodei.Audit";
+
+/// Query request for audit events
+message AuditQueryRequest {
+    string tenant_id = 1;  // Required: Tenant to query
+    HrnFilter hrn = 2;     // Optional: HRN filter
+    UserFilter user = 3;   // Optional: User filter
+    ActionFilter action = 4;  // Optional: Action filter
+    OutcomeFilter outcome = 5; // Optional: Outcome filter
+    TimeRange time_range = 6;  // Optional: Time range filter
+    Pagination pagination = 7; // Optional: Pagination
+    SortOrder sort = 8;    // Optional: Sort order
+    QueryOptions options = 9;  // Optional: Query options
+}
+
+/// Filter by Hodei Resource Name
+message HrnFilter {
+    string hrn = 1;                    // Exact HRN match
+    string hrn_prefix = 2;             // HRN prefix (for hierarchy)
+    string resource_type = 3;          // Resource type filter
+    string resource_path = 4;          // Resource path filter
+    string service = 5;                // Service filter
+    string region = 6;                 // Region filter
+}
+
+/// Filter by user
+message UserFilter {
+    string user_id = 1;    // Exact user ID match
+    repeated string user_ids = 2;  // Multiple user IDs
+    string email = 3;      // User email match
+    string role = 4;       // User role filter
+}
+
+/// Filter by action
+message ActionFilter {
+    string action = 1;            // Exact action match
+    string action_pattern = 2;    // Action pattern (SQL LIKE)
+    repeated string actions = 3;  // Multiple actions
+    EventCategory event_category = 4;  // Event category filter
+}
+
+/// Filter by outcome
+message OutcomeFilter {
+    repeated Outcome outcomes = 1;  // Allowed outcomes
+    bool include_errors = 2;        // Include error events
+    bool include_success = 3;       // Include success events
+}
+
+/// Time range for queries
+message TimeRange {
+    google.protobuf.Timestamp start_time = 1;  // Start time (inclusive)
+    google.protobuf.Timestamp end_time = 2;    // End time (exclusive)
+}
+
+/// Pagination parameters
+message Pagination {
+    string cursor = 1;      // Cursor for pagination (opaque token)
+    uint32 limit = 2;       // Maximum number of results (default: 100, max: 1000)
+    bool use_cursor = 3;    // Use cursor-based pagination vs offset
+}
+
+/// Sort order
+message SortOrder {
+    enum SortField {
+        FIELD_UNSPECIFIED = 0;
+        FIELD_TIMESTAMP = 1;     // Sort by event time
+        FIELD_HRN = 2;           // Sort by HRN
+        FIELD_USER_ID = 3;       // Sort by user ID
+        FIELD_ACTION = 4;        // Sort by action
+        FIELD_OUTCOME = 5;       // Sort by outcome
+        FIELD_LATENCY = 6;       // Sort by latency
+    }
+
+    SortField field = 1;    // Field to sort by
+    bool descending = 2;    // true for DESC, false for ASC (default)
+}
+
+/// Query options
+message QueryOptions {
+    bool include_metadata = 1;    // Include metadata in results
+    bool include_http_context = 2; // Include HTTP context
+    bool include_user_identity = 3; // Include user identity
+    bool stream_results = 4;      // Stream results instead of batch
+    uint32 max_execution_time = 5; // Max execution time in seconds
+}
+
+/// Response for audit query
+message AuditQueryResponse {
+    repeated AuditEvent events = 1;       // Events matching the query
+    QueryMetadata metadata = 2;           // Query metadata
+    string next_cursor = 3;               // Cursor for next page (if applicable)
+    bool has_more = 4;                    // Whether there are more results
+    uint32 total_count = 5;               // Total count of matching events (estimated)
+    QueryStats stats = 6;                 // Query execution statistics
+}
+
+/// Query metadata
+message QueryMetadata {
+    string query_id = 1;                  // Unique query ID
+    google.protobuf.Timestamp executed_at = 2;  // Query execution time
+    uint32 execution_time_ms = 3;         // Query execution time in ms
+    uint32 results_count = 4;             // Number of results returned
+    map<string, string> applied_filters = 5;  // Filters that were applied
+}
+
+/// Query execution statistics
+message QueryStats {
+    uint64 bytes_processed = 1;    // Amount of data processed
+    uint32 events_scanned = 2;     // Number of events scanned
+    uint32 events_returned = 3;    // Number of events returned
+    double selectivity = 4;        // Selectivity ratio (returned/scanned)
+    string storage_tier = 5;       // Storage tier queried (hot, warm, cold)
+}
+
+/// Request to resolve HRN to metadata
+message ResolveHrnRequest {
+    Hrn hrn = 1;  // HRN to resolve
+    bool include_hierarchy = 2;  // Include parent/child hierarchy
+}
+
+/// Response with HRN metadata
+message ResolveHrnResponse {
+    Hrn hrn = 1;                          // The HRN
+    HrnMetadata metadata = 2;             // HRN metadata
+    HrnHierarchy hierarchy = 3;           // HRN hierarchy (if requested)
+}
+
+/// HRN Metadata
+message HrnMetadata {
+    string display_name = 1;         // Human-readable name
+    string description = 2;          // Resource description
+    map<string, string> tags = 3;    // Tags associated with resource
+    string owner = 4;                // Resource owner
+    google.protobuf.Timestamp created_at = 5;  // When resource was created
+    google.protobuf.Timestamp updated_at = 6;  // When resource was last updated
+    map<string, google.protobuf.Value> custom_attributes = 7;  // Custom attributes
+}
+
+/// HRN Hierarchy
+message HrnHierarchy {
+    Hrn parent = 1;              // Parent HRN (if any)
+    repeated Hrn children = 2;   // Direct children
+    uint32 depth = 3;            // Depth in hierarchy
+    string path = 4;             // Full path from root
+}
+
+/// Request to search HRNs
+message SearchHrnRequest {
+    string query = 1;           // Search query
+    string resource_type = 2;   // Filter by resource type
+    string service = 3;         // Filter by service
+    string tenant_id = 4;       // Filter by tenant
+    Pagination pagination = 5;  // Pagination
+}
+
+/// Response for HRN search
+message SearchHrnResponse {
+    repeated HrnMetadata results = 1;  // Matching HRNs
+    uint32 total_count = 2;            // Total matching HRNs
+    string next_cursor = 3;            // Cursor for next page
+}
+
+/// Analytics query request
+message AnalyticsQueryRequest {
+    string tenant_id = 1;       // Required: Tenant
+    string metric = 2;          // Metric to aggregate (e.g., "event_count", "latency")
+    TimeRange time_range = 3;   // Time range
+    GroupBy group_by = 4;       // Group by clause
+    Aggregation aggregation = 5; // Aggregation function
+    HrnFilter hrn_filter = 6;   // HRN filter
+    UserFilter user_filter = 7; // User filter
+}
+
+/// Group by clause
+message GroupBy {
+    enum GroupField {
+        FIELD_UNSPECIFIED = 0;
+        FIELD_HRN = 1;          // Group by HRN
+        FIELD_USER_ID = 2;      // Group by user
+        FIELD_ACTION = 3;       // Group by action
+        FIELD_EVENT_CATEGORY = 4; // Group by event category
+        FIELD_OUTCOME = 5;      // Group by outcome
+        FIELD_SERVICE = 6;      // Group by service
+        FIELD_REGION = 7;       // Group by region
+        FIELD_DAY = 8;          // Group by day
+        FIELD_HOUR = 9;         // Group by hour
+    }
+
+    GroupField field = 1;  // Field to group by
+    string bucket = 2;     // Time bucket (e.g., "1h", "1d") if grouping by time
+}
+
+/// Aggregation function
+message Aggregation {
+    enum AggFunction {
+        FUNCTION_UNSPECIFIED = 0;
+        FUNCTION_COUNT = 1;      // Count
+        FUNCTION_SUM = 2;        // Sum
+        FUNCTION_AVG = 3;        // Average
+        FUNCTION_MIN = 4;        // Minimum
+        FUNCTION_MAX = 5;        // Maximum
+        FUNCTION_P50 = 6;        // 50th percentile
+        FUNCTION_P95 = 7;        // 95th percentile
+        FUNCTION_P99 = 8;        // 99th percentile
+    }
+
+    AggFunction function = 1;  // Aggregation function
+    string field = 2;          // Field to aggregate (if applicable)
+}
+
+/// Analytics query response
+message AnalyticsQueryResponse {
+    repeated AnalyticsResult results = 1;  // Aggregation results
+    QueryMetadata metadata = 2;            // Query metadata
+}
+
+/// Single analytics result
+message AnalyticsResult {
+    string group_key = 1;       // Group key (e.g., "hrn:...")
+    double value = 2;           // Aggregated value
+    map<string, string> labels = 3;  // Additional labels
+}
+
+/// Audit Query Service Definition
+/// Puerto 50053 - Query API
+service AuditQueryService {
+    /// Query audit events
+    rpc QueryEvents(AuditQueryRequest) returns (AuditQueryResponse);
+
+    /// Resolve HRN to metadata
+    rpc ResolveHrn(ResolveHrnRequest) returns (ResolveHrnResponse);
+
+    /// Search HRNs
+    rpc SearchHrn(SearchHrnRequest) returns (SearchHrnResponse);
+
+    /// Run analytics query
+    rpc RunAnalytics(AnalyticsQueryRequest) returns (AnalyticsQueryResponse);
+}

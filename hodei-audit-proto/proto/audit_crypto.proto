@@ -1,0 +1,214 @@
+// Audit Crypto Service - Cryptographic Operations
+// Handles digest generation, integrity verification, and key management
+
+syntax = "proto3";
+
+package hodei.audit;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/your-org/hodei-audit/gen/go/hodei/audit;hodei_audit";
+option java_package = "com.hodei.audit";
+option java_outer_classname = "AuditCryptoProto";
+option csharp_namespace = "Hodei.Audit";
+
+/// Request to verify digest integrity
+message VerifyDigestRequest {
+    string tenant_id = 1;      // Tenant identifier
+    string digest_id = 2;      // Digest ID to verify
+    string digest_hash = 3;    // SHA-256 hash of digest file
+}
+
+/// Response for digest verification
+message VerifyDigestResponse {
+    VerificationResult result = 1;     // Verification result
+    string verifier_id = 2;            // ID of verifier
+    google.protobuf.Timestamp verified_at = 3;  // Verification timestamp
+}
+
+/// Verification result
+message VerificationResult {
+    bool overall_valid = 1;        // Overall digest is valid
+    bool signature_valid = 2;      // Signature verification passed
+    bool chain_valid = 3;          // Chain verification passed
+    bool hash_matches = 4;         // Hash matches file content
+    uint32 files_verified = 5;     // Number of files verified
+    uint32 files_failed = 6;       // Number of files that failed verification
+    repeated string errors = 7;    // List of verification errors
+    string previous_digest_id = 8; // ID of previous digest in chain
+    string current_digest_id = 9;  // ID of current digest
+}
+
+/// Request to get public keys for verification
+message GetPublicKeysRequest {
+    string tenant_id = 1;      // Tenant identifier
+    bool include_inactive = 2; // Include inactive keys
+}
+
+/// Response with public keys
+message GetPublicKeysResponse {
+    KeysManifest manifest = 1;        // Public keys manifest
+    google.protobuf.Timestamp fetched_at = 2;  // When keys were fetched
+}
+
+/// Public keys manifest
+message KeysManifest {
+    string version = 1;                           // Manifest version
+    google.protobuf.Timestamp last_updated = 2;   // Last update timestamp
+    repeated PublicKeyInfo keys = 3;              // List of public keys
+    string root_signature = 4;                    // Manifest signature
+    string manifest_hash = 5;                     // SHA-256 of manifest
+}
+
+/// Public key information
+message PublicKeyInfo {
+    string key_id = 1;                    // Unique key identifier
+    string algorithm = 2;                 // Cryptographic algorithm (ed25519)
+    string public_key_pem = 3;            // Public key in PEM format
+    string fingerprint = 4;               // Key fingerprint (SHA-256)
+    google.protobuf.Timestamp valid_from = 5;  // Key valid from
+    google.protobuf.Timestamp valid_to = 6;    // Key valid to
+    KeyStatus status = 7;                 // Key status
+    string created_by = 8;                // Who created the key
+    google.protobuf.Timestamp created_at = 9;  // When key was created
+}
+
+/// Key status
+enum KeyStatus {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_ACTIVE = 1;        // Key is active and can be used
+    STATUS_INACTIVE = 2;      // Key is inactive
+    STATUS_EXPIRED = 3;       // Key has expired
+    STATUS_REVOKED = 4;       // Key has been revoked
+    STATUS_COMPROMISED = 5;   // Key is suspected to be compromised
+}
+
+/// Request to rotate signing key
+message RotateKeyRequest {
+    string tenant_id = 1;      // Tenant identifier
+    bool force_rotation = 2;   // Force rotation even if not due
+    string reason = 3;         // Reason for rotation
+}
+
+/// Response for key rotation
+message RotateKeyResponse {
+    string new_key_id = 1;                     // New key ID
+    string old_key_id = 2;                     // Old key ID
+    google.protobuf.Timestamp rotation_time = 3;  // When rotation occurred
+    google.protobuf.Timestamp new_key_valid_from = 4;  // New key valid from
+    google.protobuf.Timestamp old_key_valid_to = 5;    // Old key valid until
+    string rotation_id = 6;                    // Unique rotation ID
+}
+
+/// Request to generate digest
+message GenerateDigestRequest {
+    string tenant_id = 1;                      // Tenant identifier
+    google.protobuf.Timestamp start_time = 2;  // Start of period to digest
+    google.protobuf.Timestamp end_time = 3;    // End of period to digest
+    string previous_digest_id = 4;             // Previous digest ID (for chain)
+}
+
+/// Response for digest generation
+message GenerateDigestResponse {
+    DigestInfo digest = 1;                     // Generated digest info
+    google.protobuf.Timestamp generated_at = 2;  // When digest was generated
+    string generator_id = 3;                   // Who generated the digest
+}
+
+/// Digest information
+message DigestInfo {
+    string digest_id = 1;                      // Unique digest ID
+    string tenant_id = 2;                      // Tenant identifier
+    google.protobuf.Timestamp digest_start_time = 3;  // Period start
+    google.protobuf.Timestamp digest_end_time = 4;    // Period end
+    string previous_digest_hash = 5;           // Hash of previous digest
+    string previous_digest_signature = 6;      // Signature of previous digest
+    string digest_signature = 7;               // Signature of this digest
+    string digest_algorithm = 8;               // Algorithm used (ed25519)
+    string digest_hash = 9;                    // SHA-256 hash of digest
+    uint32 total_log_files = 10;               // Number of log files
+    uint64 total_events = 11;                  // Total events in digest
+    uint64 total_bytes = 12;                   // Total bytes processed
+    string s3_location = 13;                   // S3 location of digest file
+    repeated LogFileInfo log_files = 14;       // List of log files included
+}
+
+/// Log file information
+message LogFileInfo {
+    string s3_path = 1;        // S3 path of file
+    string sha256_hash = 2;    // SHA-256 hash of file
+    string hash_algorithm = 3; // Hash algorithm used
+    uint64 file_size = 4;      // File size in bytes
+    uint32 event_count = 5;    // Number of events in file
+    google.protobuf.Timestamp newest_event_time = 6;  // Newest event timestamp
+    google.protobuf.Timestamp oldest_event_time = 7;  // Oldest event timestamp
+}
+
+/// Request to list digests
+message ListDigestsRequest {
+    string tenant_id = 1;                // Tenant identifier
+    google.protobuf.Timestamp start_time = 2;  // Optional start time filter
+    google.protobuf.Timestamp end_time = 3;    // Optional end time filter
+    bool include_failed = 4;             // Include failed digests
+    uint32 limit = 5;                    // Maximum results
+    string cursor = 6;                   // Pagination cursor
+}
+
+/// Response for list digests
+message ListDigestsResponse {
+    repeated DigestInfo digests = 1;     // List of digests
+    string next_cursor = 2;              // Cursor for next page
+    uint32 total_count = 3;              // Total digests (estimated)
+}
+
+/// Audit Crypto Service Definition
+/// Puerto 50054 - Crypto API
+service AuditCryptoService {
+    /// Verify digest integrity
+    rpc VerifyDigest(VerifyDigestRequest) returns (VerifyDigestResponse);
+
+    /// Get public keys manifest
+    rpc GetPublicKeys(GetPublicKeysRequest) returns (GetPublicKeysResponse);
+
+    /// Rotate signing key
+    rpc RotateKey(RotateKeyRequest) returns (RotateKeyResponse);
+
+    /// Generate digest (typically used by DigestWorker)
+    rpc GenerateDigest(GenerateDigestRequest) returns (GenerateDigestResponse);
+
+    /// List digests
+    rpc ListDigests(ListDigestsRequest) returns (ListDigestsResponse);
+}
+
+/// Compliance report request
+message ComplianceReportRequest {
+    string tenant_id = 1;      // Tenant identifier
+    string regulation = 2;     // Regulation type (SOC2, PCI-DSS, GDPR, etc.)
+    TimeRange time_range = 3;  // Time range for report
+    ReportFormat format = 4;   // Output format
+    repeated string include_sections = 5;  // Sections to include
+}
+
+/// Compliance report format
+enum ReportFormat {
+    FORMAT_UNSPECIFIED = 0;
+    FORMAT_JSON = 1;
+    FORMAT_PDF = 2;
+    FORMAT_CSV = 3;
+}
+
+/// Compliance report response
+message ComplianceReportResponse {
+    string report_id = 1;                          // Unique report ID
+    string report_url = 2;                         // URL to download report
+    google.protobuf.Timestamp generated_at = 3;    // When report was generated
+    google.protobuf.Timestamp valid_until = 4;     // Report validity period
+    repeated string signatures = 5;                // Report signatures
+    map<string, string> metadata = 6;              // Report metadata
+}
+
+/// Compliance report service
+service ComplianceService {
+    /// Generate compliance report
+    rpc GenerateReport(ComplianceReportRequest) returns (ComplianceReportResponse);
+}

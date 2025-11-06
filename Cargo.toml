@@ -1,0 +1,58 @@
+[package]
+name = "hodei-audit"
+version = "0.1.0"
+edition = "2021"
+authors = ["Hodei Team"]
+description = "Hodei Audit Service - Ecosistema Centralizado de Auditoría"
+license = "MIT"
+repository = "https://github.com/your-org/hodei-audit"
+keywords = ["audit", "grpc", "cloudtrail", "compliance", "rust"]
+categories = ["network-programming", "web-programming"]
+readme = "README.md"
+
+[workspace]
+members = [
+    "hodei-audit-proto",
+    "hodei-audit-types",
+    "hodei-audit-service",
+    "hodei-audit-sdk",
+    "hodei-audit-cli",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Dependencies shared across crates
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
+
+# Testing
+rstest = "0.18"
+tempfile = "3.0"
+
+[profile.dev]
+opt-level = 0
+debug = true
+strip = false
+debug-assertions = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true

@@ -1,0 +1,41 @@
+[package]
+name = "hodei-audit-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "Hodei Audit SDK - Middleware para captura de eventos de auditoría"
+license = "MIT"
+repository = "https://github.com/your-org/hodei-audit"
+keywords = ["audit", "grpc", "sdk", "middleware", "rust"]
+categories = ["network-programming", "web-programming"]
+
+[lib]
+name = "hodei_audit_sdk"
+path = "src/lib.rs"
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true, features = ["full"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt", "json"] }
+
+# gRPC client
+tonic = "0.10"
+tonic-build = "0.10"
+prost = "0.12"
+prost-types = "0.12"
+
+# HTTP client for Vector API
+reqwest = { version = "0.11", features = ["json", "gzip", "brotli", "deflate"] }
+
+# Async utilities
+async-trait = { workspace = true }
+futures = "0.3"
+
+[dev-dependencies]
+rstest = { workspace = true }
+tempfile = { workspace = true }
