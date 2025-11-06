@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # ClickHouse - Base de datos analítica (Hot Storage)
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: hodei-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native interface
+    environment:
+      - CLICKHOUSE_DB=hodei_audit
+      - CLICKHOUSE_USER=hodei
+      - CLICKHOUSE_PASSWORD=hodei123
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./config/clickhouse/:/etc/clickhouse-server/conf.d/:ro
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - hodei-network
+
+  # Vector.dev - Ingesta y fan-out
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: hodei-vector
+    ports:
+      - "50051:50051"  # gRPC API
+      - "9598:9598"    # Metrics
+    environment:
+      - VECTOR_LOG=info
+    volumes:
+      - ./config/vector/vector.toml:/etc/vector/vector.toml:ro
+      - vector_data:/var/lib/vector
+      - ./logs:/var/log/vector:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9598/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - hodei-network
+    command: ["--config", "/etc/vector/vector.toml"]
+
+  # MinIO - S3-compatible storage (Warm/Cold Storage)
+  minio:
+    image: minio/minio:latest
+    container_name: hodei-minio
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - hodei-network
+    command: server /data --console-address ":9001"
+
+  # Prometheus - Métricas y observabilidad
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: hodei-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hodei-network
+
+  # Grafana - Dashboards (opcional)
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: hodei-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hodei-network
+
+  # Jaeger - Distributed Tracing (opcional)
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: hodei-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "14250:14250"  # gRPC collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hodei-network
+
+volumes:
+  clickhouse_data:
+    driver: local
+  vector_data:
+    driver: local
+  minio_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  hodei-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
