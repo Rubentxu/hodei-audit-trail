@@ -16,7 +16,6 @@ members = [
     "hodei-audit-types",
     "hodei-audit-service",
     "hodei-audit-sdk",
-    "hodei-audit-cli",
 ]
 resolver = "2"
 

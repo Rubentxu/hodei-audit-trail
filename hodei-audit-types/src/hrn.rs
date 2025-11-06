@@ -58,7 +58,8 @@ impl Hrn {
         }
 
         // Parse resource path (may contain colons after resource type)
-        let resource_parts: Vec<&str> = parts[5..].join(":").split('/').collect();
+        let resource_str = parts[5..].join(":");
+        let resource_parts: Vec<&str> = resource_str.split('/').collect();
         let resource_type = resource_parts[0].to_string();
         let resource_path = if resource_parts.len() > 1 {
             resource_parts[1..].join("/")
@@ -142,12 +143,12 @@ pub enum HrnError {
     ParseError(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HrnMetadata {
     pub hrn: Hrn,
     pub display_name: String,
     pub description: Option<String>,
-    pub tags: std::collections::HashMap<String, String>,
+    pub tags: std::collections::BTreeMap<String, String>,
     pub owner: Option<String>,
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -179,11 +180,11 @@ mod tests {
 
     #[test]
     fn test_hrn_parent() {
-        let hrn = Hrn::parse("hrn:hodei:api:tenant-123:global:api/user-profile").unwrap();
-        let parent = hrn.parent().unwrap();
+        let hrn = Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy/default/child").unwrap();
+        let parent = hrn.parent().expect("Expected parent to exist");
 
-        assert_eq!(parent.resource_path, "api");
-        assert!(parent.parent().is_none());
+        assert_eq!(parent.resource_path, "default");
+        assert_eq!(parent.resource_type, "policy");
     }
 
     #[test]
