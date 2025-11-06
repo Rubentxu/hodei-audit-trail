@@ -16,6 +16,7 @@ pub mod grpc;
 pub mod hrn;
 pub mod query;
 pub mod s3_storage;
+pub mod service;
 pub mod storage;
 
 // Re-exports públicos
@@ -27,3 +28,4 @@ pub use grpc::vector_api_server;
 pub use s3_storage::{
     CompressionType, LifecyclePolicy, ParquetStats, S3Client, S3Config, S3Metrics,
 };
+pub use service::{HodeiAuditService, ServiceConfig, ServiceMetrics};

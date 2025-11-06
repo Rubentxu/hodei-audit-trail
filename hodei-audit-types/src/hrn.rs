@@ -46,7 +46,8 @@ impl Hrn {
         if parts.len() < 6 {
             return Err(HrnError::InvalidFormat {
                 input: s.clone(),
-                reason: "Expected at least 6 parts (hrn:partition:service:tenant:region:type/path)".to_string(),
+                reason: "Expected at least 6 parts (hrn:partition:service:tenant:region:type/path)"
+                    .to_string(),
             });
         }
 
@@ -89,7 +90,8 @@ impl Hrn {
             self.tenant_id,
             self.region.as_deref().unwrap_or("global"),
             self.resource_type
-        ) + "/" + &self.resource_path
+        ) + "/"
+            + &self.resource_path
     }
 
     /// Get parent HRN (remove last path component)
@@ -180,7 +182,9 @@ mod tests {
 
     #[test]
     fn test_hrn_parent() {
-        let hrn = Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy/default/child").unwrap();
+        let hrn =
+            Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy/default/child")
+                .unwrap();
         let parent = hrn.parent().expect("Expected parent to exist");
 
         assert_eq!(parent.resource_path, "default");
@@ -189,8 +193,11 @@ mod tests {
 
     #[test]
     fn test_hrn_is_child_of() {
-        let parent = Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy-store").unwrap();
-        let child = Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy-store/default").unwrap();
+        let parent =
+            Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy-store").unwrap();
+        let child =
+            Hrn::parse("hrn:hodei:verified-permissions:tenant-123:global:policy-store/default")
+                .unwrap();
         let other = Hrn::parse("hrn:hodei:api:tenant-123:global:api/test").unwrap();
 
         assert!(child.is_child_of(&parent));
