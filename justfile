@@ -113,9 +113,61 @@ ci:
     just test
     just audit
 
-# Development
-dev:
-    cargo watch -x run
+# ============================================================================
+# 🚀 DESARROLLO CON HOT RELOADING
+# ============================================================================
+
+# Levantar TODO en modo desarrollo (backend + frontend)
+dev-all:
+    @echo "🚀 Iniciando entorno de desarrollo completo..."
+    @bash scripts/dev/dev-start.sh all
+
+# Levantar solo backend Rust con hot reloading
+dev-backend:
+    @echo "🦀 Iniciando backend Rust con hot reloading..."
+    @bash scripts/dev/dev-start.sh backend
+
+# Levantar solo frontend Next.js con hot reloading
+dev-frontend:
+    @echo "⚛️  Iniciando frontend Next.js con hot reloading..."
+    @bash scripts/dev/dev-start.sh frontend
+
+# Parar todos los servicios de desarrollo
+dev-stop:
+    @echo "🛑 Deteniendo todos los servicios de desarrollo..."
+    @bash scripts/dev/dev-stop.sh
+
+# Reiniciar todos los servicios
+dev-restart:
+    @echo "🔄 Reiniciando todos los servicios..."
+    just dev-stop
+    sleep 2
+    just dev-all
+
+# Ver logs de desarrollo
+dev-logs:
+    @echo "📋 Mostrando logs de desarrollo..."
+    @bash scripts/dev/dev-logs.sh
+
+# Ver estado de los servicios
+dev-status:
+    @echo "📊 Estado de los servicios de desarrollo..."
+    @bash scripts/dev/dev-status.sh
+
+# Instalar herramientas de desarrollo
+dev-setup:
+    @echo "🔧 Instalando herramientas de desarrollo..."
+    cargo install just
+    cargo install cargo-watch
+    cargo install cargo-expand
+    cargo install cargo-audit
+    npm install -g @next/cli
+    @echo "✅ Herramientas instaladas"
+
+# Desarrollo con UI dashboard
+dev-ui:
+    @echo "🖥️  Iniciando dashboard de desarrollo..."
+    @bash scripts/dev/dev-dashboard.sh
 
 # Benchmarks
 bench:
