@@ -15,11 +15,8 @@ use tokio::signal;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod crypto;
-mod grpc;
-mod storage;
-
-use grpc::{GrpcConfig, run_grpc_server};
+// Use the library instead of redeclaring modules
+use hodei_audit_service::{grpc::GrpcConfig, grpc::run_grpc_server};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

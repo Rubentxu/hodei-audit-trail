@@ -17,6 +17,8 @@ pub mod enrichment;
 pub mod grpc;
 pub mod grpc_interceptor;
 pub mod hrn;
+pub mod integration_tests_epic6;
+pub mod key_management;
 pub mod query;
 pub mod quotas;
 pub mod row_level_security;
@@ -24,9 +26,10 @@ pub mod s3_storage;
 pub mod service;
 pub mod storage;
 pub mod tenant;
+pub mod workers;
 
-#[cfg(all(test, feature = "integration-tests"))]
-mod integration_tests;
+// #[cfg(all(test, feature = "integration-tests"))]
+// mod integration_tests;  // Disabled - requires external services and testcontainers setup
 
 // Re-exports públicos
 pub use api_key::{ApiKey, ApiKeyError, ApiKeyMetadata, ApiKeyStore, ApiScope};
@@ -35,11 +38,15 @@ pub use compliance::{
     ComplianceError, ComplianceManager, ComplianceReport, DeletionReason, GDPRRequest,
     GDPRRequestStatus, GDPRRequestType, LegalHold, LegalHoldStatus, RetentionPolicy,
 };
+pub use crypto::ports::{digest_chain, hashing, signing};
+pub use crypto::{Ed25519Signer, InMemoryDigestChain, Sha256Hasher};
 pub use grpc::audit_control_server;
 pub use grpc::audit_crypto_server;
 pub use grpc::audit_query_server;
 pub use grpc::vector_api_server;
 pub use grpc_interceptor::{AsyncTenantValidationInterceptor, TenantValidationInterceptor};
+pub use key_management::ports::{key_manager, key_store};
+pub use key_management::{FileKeyStore, StandaloneKeyManager};
 pub use quotas::{QuotaExceeded, QuotaManager, QuotaStatus, QuotaType, TenantQuota};
 pub use row_level_security::{RlsManager, RlsPolicy, RlsQueryBuilder, SecureQueryExecutor};
 pub use s3_storage::{
@@ -47,3 +54,6 @@ pub use s3_storage::{
 };
 pub use service::{HodeiAuditService, ServiceConfig, ServiceMetrics};
 pub use tenant::{TenantContext, TenantContextManager, TenantExtractor, TenantTier};
+pub use workers::digest_worker::{
+    DigestWorker, DigestWorkerConfig, DigestWorkerError, DigestWorkerResult,
+};

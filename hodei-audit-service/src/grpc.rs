@@ -7,16 +7,18 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status, transport::Server};
 use tracing::info;
 
+use crate::crypto::{Ed25519Signer, InMemoryDigestChain, Sha256Hasher};
+use crate::grpc::audit_control_server::AuditControlServiceImpl;
+use crate::grpc::audit_crypto_server::AuditCryptoServiceImpl;
+use crate::grpc::audit_query_server::AuditQueryServiceImpl;
+use crate::grpc::vector_api_server::VectorApiServiceImpl;
+use crate::key_management::{FileKeyStore, StandaloneKeyManager};
+
 // Re-exports de los módulos
 pub mod audit_control_server;
 pub mod audit_crypto_server;
 pub mod audit_query_server;
 pub mod vector_api_server;
-
-pub use audit_control_server::AuditControlServiceImpl;
-pub use audit_crypto_server::AuditCryptoServiceImpl;
-pub use audit_query_server::AuditQueryServiceImpl;
-pub use vector_api_server::VectorApiServiceImpl;
 
 /// Configuración del servidor gRPC
 #[derive(Debug, Clone)]
@@ -83,7 +85,20 @@ pub async fn run_grpc_server(
     // Inicializar servicios
     let audit_control = AuditControlServiceImpl::new();
     let audit_query = AuditQueryServiceImpl::new();
-    let audit_crypto = AuditCryptoServiceImpl::new();
+
+    // Inicializar servicios crypto con dependencias reales
+    let hashing = Sha256Hasher::new();
+    let signing = Ed25519Signer::new();
+    let digest_chain = InMemoryDigestChain::new();
+    let key_store = FileKeyStore::new("/tmp/keys".into());
+    let key_manager = StandaloneKeyManager::new(signing.clone(), key_store);
+    let audit_crypto = AuditCryptoServiceImpl::<
+        Sha256Hasher,
+        Ed25519Signer,
+        InMemoryDigestChain,
+        StandaloneKeyManager<Ed25519Signer, FileKeyStore>,
+    >::new(hashing, signing, digest_chain, key_manager);
+
     let vector_api = VectorApiServiceImpl::new();
 
     // Spawner threads para cada servicio
@@ -132,7 +147,9 @@ async fn run_audit_control_server(
 
     let server = Server::builder()
         .add_service(
-            hodei_audit_proto::audit_control_service_server::AuditControlServiceServer::new(service),
+            hodei_audit_proto::audit_control_service_server::AuditControlServiceServer::new(
+                service,
+            ),
         )
         .serve(addr.parse()?)
         .await?;
@@ -148,7 +165,9 @@ async fn run_audit_query_server(
     info!("Starting AuditQueryService on {}", addr);
 
     let server = Server::builder()
-        .add_service(hodei_audit_proto::audit_query_service_server::AuditQueryServiceServer::new(service))
+        .add_service(
+            hodei_audit_proto::audit_query_service_server::AuditQueryServiceServer::new(service),
+        )
         .serve(addr.parse()?)
         .await?;
 
@@ -156,10 +175,16 @@ async fn run_audit_query_server(
     Ok(server)
 }
 
-async fn run_audit_crypto_server(
+async fn run_audit_crypto_server<HS, SS, DS, KM>(
     addr: String,
-    service: AuditCryptoServiceImpl,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    service: AuditCryptoServiceImpl<HS, SS, DS, KM>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+where
+    HS: crate::crypto::ports::hashing::HashingService,
+    SS: crate::crypto::ports::signing::SigningService,
+    DS: crate::crypto::ports::digest_chain::DigestChainService,
+    KM: crate::key_management::ports::key_manager::KeyManager,
+{
     info!("Starting AuditCryptoService on {}", addr);
 
     let server = Server::builder()

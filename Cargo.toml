@@ -38,7 +38,8 @@ ed25519-dalek = { version = "2.0", features = ["rand_core"] }
 sha2 = "0.10"
 signature = "2.0"
 hex = "0.4"
-rand = "0.9.2"
+rand = "0.8.5"
+getrandom = { version = "0.2", features = ["js"] }
 
 # LRU Cache
 lru = "0.16.2"

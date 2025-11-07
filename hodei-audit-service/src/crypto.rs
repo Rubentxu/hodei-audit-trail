@@ -1,13 +1,45 @@
-//! Criptografía para Hodei Audit Service
+//! Módulo de criptografía para Hodei Audit Service
 //!
-//! Implementa funciones de hashing, firma y verificación
+//! Implementa arquitectura hexagonal con:
+//! - Ports (abstracciones): crypto/ports/
+//! - Adapters (implementaciones): crypto/adapters/
+//!
+//! ## Capas de la Arquitectura Hexagonal
+//!
+//! ```text
+//! +-------------------+
+//! |   gRPC Services   |  ← Application Layer
+//! +-------------------+
+//!           |
+//!           v
+//! +-------------------+     +-------------------+
+//! |      Ports        |     |     Adapters      |
+//! |  (Interfaces)     |<--->| (Implementations) |
+//! +-------------------+     +-------------------+
+//!           ^                       |
+//!           |                       v
+//! +-------------------+     +-------------------+
+//! |   Domain Models   |     | Infrastructure    |
+//! +-------------------+     +-------------------+
+//! ```
 
+pub mod adapters;
+pub mod ports;
+pub mod simple_tests;
+
+// Re-exports de adapters
+pub use adapters::ed25519_signer::Ed25519Signer;
+pub use adapters::in_memory_digest_chain::InMemoryDigestChain;
+pub use adapters::sha256_hasher::Sha256Hasher;
+pub use ports::{digest_chain, hashing, signing};
+
+// Mantener funciones legacy para compatibilidad
 use ed25519_dalek::{
     Signature as EdSignature, Signer as EdSigner, SigningKey, Verifier as EdVerifier, VerifyingKey,
 };
 use sha2::{Digest, Sha256};
 
-/// Generar digest SHA-256 para un evento
+/// Generar digest SHA-256 para un evento (LEGACY - usar adapters)
 pub fn generate_digest(
     event_data: &str,
     previous_hash: Option<&str>,
@@ -24,13 +56,13 @@ pub fn generate_digest(
     Ok(hex::encode(result))
 }
 
-/// Firmar digest con ed25519
+/// Firmar digest con ed25519 (LEGACY - usar adapters)
 pub fn sign_digest(digest: &str, private_key: &SigningKey) -> Result<String, anyhow::Error> {
     let signature = private_key.sign(digest.as_bytes());
     Ok(hex::encode(signature.to_bytes()))
 }
 
-/// Verificar firma de digest
+/// Verificar firma de digest (LEGACY - usar adapters)
 pub fn verify_digest(
     digest: &str,
     signature: &str,
@@ -50,7 +82,7 @@ pub fn verify_digest(
     Ok(public_key.verify(digest.as_bytes(), &signature).is_ok())
 }
 
-/// Generar par de claves ed25519
+/// Generar par de claves ed25519 (LEGACY - usar adapters)
 pub fn generate_keypair() -> (SigningKey, VerifyingKey) {
     let signing_key = SigningKey::from_bytes(&rand::random::<[u8; 32]>());
     let verifying_key = signing_key.verifying_key();

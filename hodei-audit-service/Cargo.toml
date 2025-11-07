@@ -40,9 +40,14 @@ sha2 = { workspace = true }
 signature = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
+getrandom = { version = "0.2", features = ["js"] }
 
 # LRU Cache
 lru = { workspace = true }
+
+[features]
+# Enable integration tests with testcontainers
+integration-tests = []
 
 [dev-dependencies]
 tempfile = { workspace = true }
