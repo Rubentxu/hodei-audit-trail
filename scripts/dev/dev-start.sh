@@ -91,7 +91,9 @@ start_backend() {
     # Iniciar con cargo watch para hot reloading
     cargo watch \
         --watch hodei-audit-service \
-        --watch hodei-audit-common \
+        --watch hodei-audit-types \
+        --watch hodei-audit-sdk \
+        --watch hodei-audit-proto \
         --ignore 'target/' \
         --ignore '*.log' \
         --ignore '.git/' \
