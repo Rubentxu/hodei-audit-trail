@@ -21,6 +21,7 @@ import { DigestChainView } from "@/components/compliance/digest-chain-view";
 import { KeyManagementView } from "@/components/compliance/key-management-view";
 import { ComplianceSettingsView } from "@/components/compliance/compliance-settings-view";
 import { ComplianceDashboardView } from "@/components/compliance/compliance-dashboard-view";
+import { AuditTrailView } from "@/components/compliance/audit-trail-view";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -96,7 +97,7 @@ export default function CompliancePage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Dashboard
@@ -112,6 +113,10 @@ export default function CompliancePage() {
           <TabsTrigger value="keys" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Keys
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Audit Trail
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -146,6 +151,10 @@ export default function CompliancePage() {
 
         <TabsContent value="keys" className="space-y-4">
           <KeyManagementView />
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-4">
+          <AuditTrailView />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
