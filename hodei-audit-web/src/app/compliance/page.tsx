@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, FileText, Key, Settings } from "lucide-react";
+import { Shield, FileText, Key, Settings, Bell } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ReportsList } from "@/components/compliance/reports-list";
@@ -23,6 +23,7 @@ import { ComplianceSettingsView } from "@/components/compliance/compliance-setti
 import { ComplianceDashboardView } from "@/components/compliance/compliance-dashboard-view";
 import { AuditTrailView } from "@/components/compliance/audit-trail-view";
 import { ReportScheduler } from "@/components/compliance/report-scheduler";
+import { ComplianceNotificationsView } from "@/components/compliance/compliance-notifications-view";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -98,7 +99,7 @@ export default function CompliancePage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Dashboard
@@ -122,6 +123,13 @@ export default function CompliancePage() {
           <TabsTrigger value="audit" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Audit Trail
+          </TabsTrigger>
+          <TabsTrigger
+            value="notifications"
+            className="flex items-center gap-2"
+          >
+            <Bell className="h-4 w-4" />
+            Notifications
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -164,6 +172,10 @@ export default function CompliancePage() {
 
         <TabsContent value="audit" className="space-y-4">
           <AuditTrailView />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-4">
+          <ComplianceNotificationsView />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
