@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { ReportsList } from "@/components/compliance/reports-list";
 import { GenerateReportModal } from "@/components/compliance/generate-report-modal";
 import { TemplatesList } from "@/components/compliance/templates-list";
+import { DigestChainView } from "@/components/compliance/digest-chain-view";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -129,23 +130,7 @@ export default function CompliancePage() {
         </TabsContent>
 
         <TabsContent value="digests" className="space-y-4">
-          <h2 className="text-2xl font-semibold">Digest Chain</h2>
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Integrity Verification</CardTitle>
-              <CardDescription>
-                Verify the integrity of your audit trail data using
-                cryptographic hash chains
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Digest chain view will be implemented here</p>
-                <p className="text-sm mt-2">Story 06.05 - Digest chain view</p>
-              </div>
-            </CardContent>
-          </Card>
+          <DigestChainView />
         </TabsContent>
 
         <TabsContent value="keys" className="space-y-4">
