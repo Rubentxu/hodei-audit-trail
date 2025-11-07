@@ -15,11 +15,17 @@ import { Shield, FileText, Key, Settings } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ReportsList } from "@/components/compliance/reports-list";
+import { GenerateReportModal } from "@/components/compliance/generate-report-modal";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("reports");
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+
+  const handleGenerateReport = (config: any) => {
+    console.log("Generating report with config:", config);
+  };
 
   if (status === "loading") {
     return (
@@ -108,7 +114,7 @@ export default function CompliancePage() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Compliance Reports</h2>
             {hasPermission("generate:reports") && (
-              <Button>
+              <Button onClick={() => setIsGenerateModalOpen(true)}>
                 <FileText className="h-4 w-4 mr-2" />
                 Generate Report
               </Button>
@@ -181,6 +187,12 @@ export default function CompliancePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <GenerateReportModal
+        open={isGenerateModalOpen}
+        onOpenChange={setIsGenerateModalOpen}
+        onGenerate={handleGenerateReport}
+      />
     </div>
   );
 }
