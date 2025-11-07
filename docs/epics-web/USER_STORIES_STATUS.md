@@ -17,7 +17,7 @@
 | 03 | Dashboard & Widgets | 10 | 10 | 0 | 0 | ✅ Complete |
 | 04 | Event History & Search | 10 | 10 | 0 | 0 | ✅ Complete |
 | 05 | Analytics & Query Builder | 10 | 10 | 0 | 0 | ✅ Complete |
-| 06 | Compliance & Reporting | 15 | 10 | 0 | 5 | 🔄 In Progress |
+| 06 | Compliance & Reporting | 15 | 11 | 0 | 4 | 🔄 In Progress |
 | 07 | API Integration & Real-time | 15 | 0 | 1 | 14 | ⏳ Pending |
 | 08 | Testing & Quality Assurance | 18 | 0 | 0 | 18 | ⏳ Pending |
 
@@ -108,7 +108,7 @@
 
 ---
 
-## 🔄 Epic 06: Compliance & Reporting (10/15 Complete, 0 In Progress)
+## 🔄 Epic 06: Compliance & Reporting (11/15 Complete, 0 In Progress)
 
 ### Story Status
 - [x] **06.01** - Compliance page layout ✅
@@ -122,7 +122,7 @@
 - [x] **06.09** - Compliance settings ✅
 - [ ] **06.10** - Report download
 - [x] **06.11** - Compliance dashboard ✅
-- [ ] **06.12** - Audit trail
+- [x] **06.12** - Audit trail ✅
 - [ ] **06.13** - Reports viewer
 - [ ] **06.14** - Report scheduling
 - [ ] **06.15** - Notifications
