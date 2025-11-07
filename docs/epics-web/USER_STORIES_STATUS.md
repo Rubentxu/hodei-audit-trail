@@ -17,7 +17,7 @@
 | 03 | Dashboard & Widgets | 10 | 10 | 0 | 0 | ✅ Complete |
 | 04 | Event History & Search | 10 | 10 | 0 | 0 | ✅ Complete |
 | 05 | Analytics & Query Builder | 10 | 10 | 0 | 0 | ✅ Complete |
-| 06 | Compliance & Reporting | 15 | 4 | 0 | 11 | 🔄 In Progress |
+| 06 | Compliance & Reporting | 15 | 6 | 0 | 9 | 🔄 In Progress |
 | 07 | API Integration & Real-time | 15 | 0 | 1 | 14 | ⏳ Pending |
 | 08 | Testing & Quality Assurance | 18 | 0 | 0 | 18 | ⏳ Pending |
 
@@ -108,15 +108,15 @@
 
 ---
 
-## 🔄 Epic 06: Compliance & Reporting (4/15 Complete, 0 In Progress)
+## 🔄 Epic 06: Compliance & Reporting (6/15 Complete, 0 In Progress)
 
 ### Story Status
 - [x] **06.01** - Compliance page layout ✅
 - [x] **06.02** - Compliance reports section ✅
 - [x] **06.03** - Generate compliance report ✅
 - [x] **06.04** - Report templates ✅
-- [ ] **06.05** - Digest chain view
-- [ ] **06.06** - Digest verification
+- [x] **06.05** - Digest chain view ✅
+- [x] **06.06** - Digest verification ✅
 - [ ] **06.07** - Key management section
 - [ ] **06.08** - Key rotation
 - [ ] **06.09** - Compliance settings

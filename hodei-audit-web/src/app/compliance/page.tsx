@@ -18,6 +18,7 @@ import { ReportsList } from "@/components/compliance/reports-list";
 import { GenerateReportModal } from "@/components/compliance/generate-report-modal";
 import { TemplatesList } from "@/components/compliance/templates-list";
 import { DigestChainView } from "@/components/compliance/digest-chain-view";
+import { KeyManagementView } from "@/components/compliance/key-management-view";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -134,24 +135,7 @@ export default function CompliancePage() {
         </TabsContent>
 
         <TabsContent value="keys" className="space-y-4">
-          <h2 className="text-2xl font-semibold">Key Management</h2>
-          <Card>
-            <CardHeader>
-              <CardTitle>Cryptographic Keys</CardTitle>
-              <CardDescription>
-                Manage encryption keys and rotation schedules
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Key management interface will be implemented here</p>
-                <p className="text-sm mt-2">
-                  Story 06.07 - Key management section
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <KeyManagementView />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
