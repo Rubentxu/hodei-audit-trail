@@ -19,6 +19,7 @@ import { GenerateReportModal } from "@/components/compliance/generate-report-mod
 import { TemplatesList } from "@/components/compliance/templates-list";
 import { DigestChainView } from "@/components/compliance/digest-chain-view";
 import { KeyManagementView } from "@/components/compliance/key-management-view";
+import { ComplianceSettingsView } from "@/components/compliance/compliance-settings-view";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -139,25 +140,7 @@ export default function CompliancePage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
-          <h2 className="text-2xl font-semibold">Compliance Settings</h2>
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration</CardTitle>
-              <CardDescription>
-                Configure retention policies, encryption, and notification
-                settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Compliance settings will be implemented here</p>
-                <p className="text-sm mt-2">
-                  Story 06.09 - Compliance settings
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <ComplianceSettingsView />
         </TabsContent>
       </Tabs>
 
