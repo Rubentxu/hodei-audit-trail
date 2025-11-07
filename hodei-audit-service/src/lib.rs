@@ -19,6 +19,7 @@ pub mod grpc_interceptor;
 pub mod hrn;
 pub mod integration_tests_epic6;
 pub mod key_management;
+pub mod performance;
 pub mod query;
 pub mod quotas;
 pub mod row_level_security;
@@ -64,4 +65,12 @@ pub use vector::{
 pub use vector::{VectorHealthStatus, VectorMetrics, VectorMetricsCollector, VectorMetricsSummary};
 pub use workers::digest_worker::{
     DigestWorker, DigestWorkerConfig, DigestWorkerError, DigestWorkerResult,
+};
+
+// Performance optimizations
+pub use performance::{
+    BackpressureConfig, BackpressureController, BackpressureMetrics, BatchResult, BatcherConfig,
+    BatcherError, BatchingPolicy, CircuitBreaker, CircuitBreakerConfig, CircuitBreakerMetrics,
+    CircuitState, ConnectionPool, PoolConfig, PoolError, PoolStats, PooledConnection,
+    PressureLevel, SmartBatcher,
 };
