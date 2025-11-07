@@ -20,6 +20,7 @@ import { TemplatesList } from "@/components/compliance/templates-list";
 import { DigestChainView } from "@/components/compliance/digest-chain-view";
 import { KeyManagementView } from "@/components/compliance/key-management-view";
 import { ComplianceSettingsView } from "@/components/compliance/compliance-settings-view";
+import { ComplianceDashboardView } from "@/components/compliance/compliance-dashboard-view";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -95,7 +96,11 @@ export default function CompliancePage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Reports
@@ -113,6 +118,10 @@ export default function CompliancePage() {
             Settings
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-4">
+          <ComplianceDashboardView />
+        </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
           <div className="flex items-center justify-between">
