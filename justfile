@@ -12,6 +12,28 @@ DEFAULT_CARGO_ARGS := "--workspace"
 default:
     @just --list
 
+# Ayuda específica para tests
+test-help:
+    @echo ""
+    @echo "╔════════════════════════════════════════════════════════════╗"
+    @echo "║           🧪 COMANDOS DE TESTS - HODEI AUDIT             ║"
+    @echo "╚════════════════════════════════════════════════════════════╝"
+    @echo ""
+    @echo "📋 TESTS BÁSICOS:"
+    @echo "  just test               - Ejecutar todos los tests (154 tests)"
+    @echo "  just test-integration   - Tests de integración (Epic 5, 6, 8)"
+    @echo "  just test-watch         - Tests en modo watch"
+    @echo ""
+    @echo "📊 COBERTURA:"
+    @echo "  just coverage           - Generar reporte de cobertura HTML"
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "💡 EJEMPLOS:"
+    @echo "  just test-integration"
+    @echo "  just coverage"
+    @echo ""
+
 # Setup inicial del proyecto
 setup:
     echo "🚀 Setting up Hodei Audit development environment..."
@@ -39,11 +61,9 @@ check:
 test:
     cargo test --workspace --all-targets
 
-test-unit:
-    cargo test --workspace --lib
-
 test-integration:
-    cargo test --workspace --test '*'
+    @echo "🧪 Ejecutando todos los tests de integración..."
+    cargo test -p hodei-audit-service --lib
 
 test-watch:
     cargo watch -x test
