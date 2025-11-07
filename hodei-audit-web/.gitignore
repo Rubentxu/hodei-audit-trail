@@ -5,6 +5,8 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -31,3 +33,36 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated screenshots and documentation
+/docs/screenshots
+/docs/diagnostic/screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Generated reports
+/COVERAGE.md
+playwright-report
+test-results
+*.log
+
+# Development scripts (if not meant to be committed)
+/scripts/generate-*.js
+/scripts/diagnostic*.js
+/tests-e2e/screenshots
+
+# Temporary test files
+/src/__tests__/sample.test.ts
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
