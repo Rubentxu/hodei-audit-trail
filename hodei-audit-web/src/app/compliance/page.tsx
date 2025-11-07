@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ReportsList } from "@/components/compliance/reports-list";
 import { GenerateReportModal } from "@/components/compliance/generate-report-modal";
+import { TemplatesList } from "@/components/compliance/templates-list";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -121,7 +122,10 @@ export default function CompliancePage() {
             )}
           </div>
 
-          <ReportsList />
+          <div className="space-y-6">
+            <ReportsList />
+            <TemplatesList />
+          </div>
         </TabsContent>
 
         <TabsContent value="digests" className="space-y-4">
