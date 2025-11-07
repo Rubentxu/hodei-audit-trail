@@ -1,13 +1,13 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ShieldX } from 'lucide-react';
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ShieldX } from "lucide-react";
 
 export default function UnauthorizedPage({
   searchParams,
 }: {
   searchParams: { callbackUrl?: string };
 }) {
-  const callbackUrl = searchParams.callbackUrl || '/dashboard';
+  const callbackUrl = searchParams.callbackUrl || "/dashboard";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -18,13 +18,14 @@ export default function UnauthorizedPage({
             Access Denied
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            You don't have permission to access this resource
+            You don&apos;t have permission to access this resource
           </p>
         </div>
 
         <div className="mt-8 space-y-4">
           <p className="text-sm text-gray-500">
-            If you believe you should have access to this page, please contact your administrator.
+            If you believe you should have access to this page, please contact
+            your administrator.
           </p>
 
           <div className="flex flex-col space-y-2">

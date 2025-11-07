@@ -6,10 +6,10 @@
  */
 
 import { grpc } from "@improbable-eng/grpc-web";
-import { NodeHttp } from "@improbable-eng/grpc-web-node-http-transport";
+import { NodeHttpTransport } from "@improbable-eng/grpc-web-node-http-transport";
 
 // Configure gRPC-web to use Node.js HTTP transport
-grpc.setDefaultTransport(NodeHttp);
+grpc.setDefaultTransport(NodeHttpTransport.nodeHttp1Protobuf);
 
 // Client configuration
 export interface GrpcClientConfig {
@@ -59,7 +59,7 @@ export class GrpcClient {
    */
   public createUnaryCall<TRequest, TResponse>(
     service: grpc.UnaryServiceDefinition<TRequest, TResponse>,
-    method: grpc.UnaryMethodDefinition<TRequest, TResponse>
+    method: grpc.UnaryMethodDefinition<TRequest, TResponse>,
   ): grpc.UnaryCall<TRequest, TResponse> {
     const request = new grpc.Request();
     request.setMethod(method);
@@ -77,7 +77,7 @@ export class GrpcClient {
    */
   public createServerStreamingCall<TRequest, TResponse>(
     service: grpc.ServiceDefinition<TRequest, TResponse>,
-    method: grpc.MethodDefinition<TRequest, TResponse>
+    method: grpc.MethodDefinition<TRequest, TResponse>,
   ): grpc.ServerStreamingCall<TRequest, TResponse> {
     const request = new grpc.Request();
     request.setMethod(method);
@@ -110,7 +110,7 @@ export class GrpcClient {
   public async unaryCall<TRequest, TResponse>(
     service: grpc.UnaryServiceDefinition<TRequest, TResponse>,
     method: grpc.UnaryMethodDefinition<TRequest, TResponse>,
-    requestData: TRequest
+    requestData: TRequest,
   ): Promise<TResponse> {
     let attempt = 0;
     let lastError: Error | null = null;
@@ -121,7 +121,7 @@ export class GrpcClient {
           service,
           method,
           requestData,
-          attempt
+          attempt,
         );
         return result;
       } catch (error) {
@@ -147,7 +147,7 @@ export class GrpcClient {
     service: grpc.UnaryServiceDefinition<TRequest, TResponse>,
     method: grpc.UnaryMethodDefinition<TRequest, TResponse>,
     requestData: TRequest,
-    attempt: number
+    attempt: number,
   ): Promise<TResponse> {
     return new Promise((resolve, reject) => {
       const call = this.createUnaryCall(service, method);
@@ -179,7 +179,9 @@ export class GrpcClient {
       // Start the call and send the request
       interceptedRequest.onStatus((status: grpc.Status) => {
         if (status.code !== grpc.StatusCode.OK) {
-          reject(new Error(`gRPC call failed: ${status.code} - ${status.detail}`));
+          reject(
+            new Error(`gRPC call failed: ${status.code} - ${status.detail}`),
+          );
         }
       });
 
@@ -206,7 +208,7 @@ export class GrpcClient {
   public createServerStreamingCall<TRequest, TResponse>(
     service: grpc.ServiceDefinition<TRequest, TResponse>,
     method: grpc.MethodDefinition<TRequest, TResponse>,
-    requestData: TRequest
+    requestData: TRequest,
   ): {
     call: grpc.ServerStreamingCall<TRequest, TResponse>;
     promise: Promise<grpc.Response<TResponse>>;
@@ -283,8 +285,8 @@ export function getAuthToken(): string | null {
   }
 
   // Try to get token from various storage locations
-  const token = localStorage.getItem("authToken") ||
-                sessionStorage.getItem("authToken");
+  const token =
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
   return token;
 }
@@ -304,26 +306,28 @@ export function createAuthMetadata(): grpc.Metadata {
 }
 
 /**
- * Error codes mapping
+ * Error codes mapping - computed lazily to avoid SSR issues
  */
-export const GRPC_ERROR_CODES: Record<grpc.StatusCode, string> = {
-  [grpc.StatusCode.OK]: "OK",
-  [grpc.StatusCode.CANCELLED]: "Cancelled",
-  [grpc.StatusCode.UNKNOWN]: "Unknown",
-  [grpc.StatusCode.INVALID_ARGUMENT]: "Invalid Argument",
-  [grpc.StatusCode.DEADLINE_EXCEEDED]: "Deadline Exceeded",
-  [grpc.StatusCode.NOT_FOUND]: "Not Found",
-  [grpc.StatusCode.ALREADY_EXISTS]: "Already Exists",
-  [grpc.StatusCode.PERMISSION_DENIED]: "Permission Denied",
-  [grpc.StatusCode.RESOURCE_EXHAUSTED]: "Resource Exhausted",
-  [grpc.StatusCode.FAILED_PRECONDITION]: "Failed Precondition",
-  [grpc.StatusCode.ABORTED]: "Aborted",
-  [grpc.StatusCode.OUT_OF_RANGE]: "Out of Range",
-  [grpc.StatusCode.UNIMPLEMENTED]: "Unimplemented",
-  [grpc.StatusCode.INTERNAL]: "Internal",
-  [grpc.StatusCode.UNAVAILABLE]: "Unavailable",
-  [grpc.StatusCode.DATA_LOSS]: "Data Loss",
-  [grpc.StatusCode.UNAUTHENTICATED]: "Unauthenticated",
+export const GRPC_ERROR_CODES: Record<number, string> = {
+  ...(grpc?.grpc?.Code?.OK !== undefined && {
+    [grpc.grpc.Code.OK]: "OK",
+    [grpc.grpc.Code.CANCELLED]: "Cancelled",
+    [grpc.grpc.Code.UNKNOWN]: "Unknown",
+    [grpc.grpc.Code.INVALID_ARGUMENT]: "Invalid Argument",
+    [grpc.grpc.Code.DEADLINE_EXCEEDED]: "Deadline Exceeded",
+    [grpc.grpc.Code.NOT_FOUND]: "Not Found",
+    [grpc.grpc.Code.ALREADY_EXISTS]: "Already Exists",
+    [grpc.grpc.Code.PERMISSION_DENIED]: "Permission Denied",
+    [grpc.grpc.Code.RESOURCE_EXHAUSTED]: "Resource Exhausted",
+    [grpc.grpc.Code.FAILED_PRECONDITION]: "Failed Precondition",
+    [grpc.grpc.Code.ABORTED]: "Aborted",
+    [grpc.grpc.Code.OUT_OF_RANGE]: "Out of Range",
+    [grpc.grpc.Code.UNIMPLEMENTED]: "Unimplemented",
+    [grpc.grpc.Code.INTERNAL]: "Internal",
+    [grpc.grpc.Code.UNAVAILABLE]: "Unavailable",
+    [grpc.grpc.Code.DATA_LOSS]: "Data Loss",
+    [grpc.grpc.Code.UNAUTHENTICATED]: "Unauthenticated",
+  }),
 };
 
 /**

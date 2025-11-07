@@ -9,7 +9,11 @@ import { withAuth, AuthContext } from "@/lib/middleware/auth";
 import { mockApis } from "@/lib/api/mock";
 import { createApiClients } from "@/lib/api/client";
 import { createEventServiceClient } from "@/lib/grpc/factory";
-import { AnalyticsQuery, RunAnalyticsRequest, AnalyticsResult } from "@/lib/grpc/types";
+import {
+  AnalyticsQuery,
+  RunAnalyticsRequest,
+  AnalyticsResult,
+} from "@/lib/grpc/types";
 
 // Feature flag to use mock APIs in development
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
@@ -25,7 +29,7 @@ const analyticsClient = USE_MOCK_API ? null : createEventServiceClient();
  */
 async function handleAnalyticsQuery(
   request: NextRequest,
-  context: AuthContext
+  context: AuthContext,
 ): Promise<NextResponse> {
   try {
     const body = await request.json();
@@ -40,7 +44,7 @@ async function handleAnalyticsQuery(
             message: "query is required",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,7 +59,7 @@ async function handleAnalyticsQuery(
             message: validation.message,
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -63,7 +67,8 @@ async function handleAnalyticsQuery(
 
     let result: AnalyticsResult;
     if (USE_MOCK_API) {
-      result = await mockApis.analytics.runQuery(query);
+      const response = await mockApis.analytics.runQuery(query);
+      result = response.data!;
     } else {
       // Use real gRPC client
       const apiClients = createApiClients(analyticsClient!);
@@ -74,7 +79,9 @@ async function handleAnalyticsQuery(
     const queryTime = Date.now() - startTime;
 
     // Log analytics query
-    console.log(`[Analytics] Query executed in ${queryTime}ms for user ${context.user?.id}`);
+    console.log(
+      `[Analytics] Query executed in ${queryTime}ms for user ${context.user?.id}`,
+    );
 
     return NextResponse.json({
       success: true,
@@ -98,7 +105,7 @@ async function handleAnalyticsQuery(
           details: error instanceof Error ? error.message : undefined,
         },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -106,7 +113,10 @@ async function handleAnalyticsQuery(
 /**
  * Validate analytics query structure
  */
-function validateAnalyticsQuery(query: any): { valid: boolean; message?: string } {
+function validateAnalyticsQuery(query: any): {
+  valid: boolean;
+  message?: string;
+} {
   if (!query) {
     return { valid: false, message: "Query object is required" };
   }
@@ -116,7 +126,10 @@ function validateAnalyticsQuery(query: any): { valid: boolean; message?: string 
   }
 
   if (!query.query && !query.aggregations) {
-    return { valid: false, message: "Either query or aggregations must be provided" };
+    return {
+      valid: false,
+      message: "Either query or aggregations must be provided",
+    };
   }
 
   // Validate aggregations

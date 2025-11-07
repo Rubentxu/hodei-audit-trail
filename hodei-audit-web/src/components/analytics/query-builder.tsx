@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Plus,
   Trash2,
@@ -29,15 +29,15 @@ import {
   Save,
   Download,
   ArrowRight,
-  BarChart3
-} from 'lucide-react';
+  BarChart3,
+} from "lucide-react";
 
 export interface QueryFilter {
   id: string;
   field: string;
   operator: string;
   value: string;
-  logicalOperator: 'AND' | 'OR';
+  logicalOperator: "AND" | "OR";
 }
 
 export interface QueryGroup {
@@ -49,7 +49,7 @@ export interface QueryGroup {
 export interface QuerySort {
   id: string;
   field: string;
-  direction: 'asc' | 'desc';
+  direction: "asc" | "desc";
 }
 
 interface QueryBuilderProps {
@@ -58,102 +58,102 @@ interface QueryBuilderProps {
 }
 
 const AVAILABLE_FIELDS = [
-  { value: 'timestamp', label: 'Timestamp', type: 'date' },
-  { value: 'user', label: 'User', type: 'string' },
-  { value: 'action', label: 'Action', type: 'string' },
-  { value: 'resource', label: 'Resource', type: 'string' },
-  { value: 'status', label: 'Status', type: 'string' },
-  { value: 'source', label: 'Source', type: 'string' },
+  { value: "timestamp", label: "Timestamp", type: "date" },
+  { value: "user", label: "User", type: "string" },
+  { value: "action", label: "Action", type: "string" },
+  { value: "resource", label: "Resource", type: "string" },
+  { value: "status", label: "Status", type: "string" },
+  { value: "source", label: "Source", type: "string" },
 ];
 
 const OPERATORS = [
-  { value: 'equals', label: 'Equals' },
-  { value: 'not_equals', label: 'Not Equals' },
-  { value: 'contains', label: 'Contains' },
-  { value: 'not_contains', label: 'Not Contains' },
-  { value: 'starts_with', label: 'Starts With' },
-  { value: 'ends_with', label: 'Ends With' },
-  { value: 'greater_than', label: 'Greater Than' },
-  { value: 'less_than', label: 'Less Than' },
-  { value: 'is_empty', label: 'Is Empty' },
-  { value: 'is_not_empty', label: 'Is Not Empty' },
+  { value: "equals", label: "Equals" },
+  { value: "not_equals", label: "Not Equals" },
+  { value: "contains", label: "Contains" },
+  { value: "not_contains", label: "Not Contains" },
+  { value: "starts_with", label: "Starts With" },
+  { value: "ends_with", label: "Ends With" },
+  { value: "greater_than", label: "Greater Than" },
+  { value: "less_than", label: "Less Than" },
+  { value: "is_empty", label: "Is Empty" },
+  { value: "is_not_empty", label: "Is Not Empty" },
 ];
 
 const AGGREGATORS = [
-  { value: 'count', label: 'Count' },
-  { value: 'sum', label: 'Sum' },
-  { value: 'avg', label: 'Average' },
-  { value: 'min', label: 'Minimum' },
-  { value: 'max', label: 'Maximum' },
-  { value: 'group_by', label: 'Group By' },
+  { value: "count", label: "Count" },
+  { value: "sum", label: "Sum" },
+  { value: "avg", label: "Average" },
+  { value: "min", label: "Minimum" },
+  { value: "max", label: "Maximum" },
+  { value: "group_by", label: "Group By" },
 ];
 
 export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
   const [filters, setFilters] = useState<QueryFilter[]>([]);
   const [groups, setGroups] = useState<QueryGroup[]>([]);
   const [sorts, setSorts] = useState<QuerySort[]>([]);
-  const [limit, setLimit] = useState<string>('100');
+  const [limit, setLimit] = useState<string>("100");
   const [isRunning, setIsRunning] = useState(false);
-  const [queryName, setQueryName] = useState('');
+  const [queryName, setQueryName] = useState("");
 
   const addFilter = () => {
     const newFilter: QueryFilter = {
       id: `filter-${Date.now()}`,
-      field: '',
-      operator: 'equals',
-      value: '',
-      logicalOperator: filters.length > 0 ? 'AND' : 'AND',
+      field: "",
+      operator: "equals",
+      value: "",
+      logicalOperator: filters.length > 0 ? "AND" : "AND",
     };
     setFilters([...filters, newFilter]);
   };
 
   const removeFilter = (id: string) => {
-    setFilters(filters.filter(f => f.id !== id));
+    setFilters(filters.filter((f) => f.id !== id));
   };
 
   const updateFilter = (id: string, updates: Partial<QueryFilter>) => {
-    setFilters(filters.map(f => f.id === id ? { ...f, ...updates } : f));
+    setFilters(filters.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   };
 
   const addGroup = () => {
     const newGroup: QueryGroup = {
       id: `group-${Date.now()}`,
-      field: '',
-      aggregator: 'count',
+      field: "",
+      aggregator: "count",
     };
     setGroups([...groups, newGroup]);
   };
 
   const removeGroup = (id: string) => {
-    setGroups(groups.filter(g => g.id !== id));
+    setGroups(groups.filter((g) => g.id !== id));
   };
 
   const updateGroup = (id: string, updates: Partial<QueryGroup>) => {
-    setGroups(groups.map(g => g.id === id ? { ...g, ...updates } : g));
+    setGroups(groups.map((g) => (g.id === id ? { ...g, ...updates } : g)));
   };
 
   const addSort = () => {
     const newSort: QuerySort = {
       id: `sort-${Date.now()}`,
-      field: '',
-      direction: 'desc',
+      field: "",
+      direction: "desc",
     };
     setSorts([...sorts, newSort]);
   };
 
   const removeSort = (id: string) => {
-    setSorts(sorts.filter(s => s.id !== id));
+    setSorts(sorts.filter((s) => s.id !== id));
   };
 
   const updateSort = (id: string, updates: Partial<QuerySort>) => {
-    setSorts(sorts.map(s => s.id === id ? { ...s, ...updates } : s));
+    setSorts(sorts.map((s) => (s.id === id ? { ...s, ...updates } : s)));
   };
 
   const handleRun = async () => {
     setIsRunning(true);
 
     // Simulate query execution
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (onRun) {
       onRun({
@@ -170,7 +170,7 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
   const handleSave = () => {
     if (queryName.trim() && onSave) {
       onSave(queryName);
-      setQueryName('');
+      setQueryName("");
     }
   };
 
@@ -185,13 +185,17 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={handleSave} disabled={!queryName.trim()}>
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            disabled={!queryName.trim()}
+          >
             <Save className="h-4 w-4 mr-2" />
             Save Query
           </Button>
           <Button onClick={handleRun} disabled={isRunning}>
             <Play className="h-4 w-4 mr-2" />
-            {isRunning ? 'Running...' : 'Run Query'}
+            {isRunning ? "Running..." : "Run Query"}
           </Button>
         </div>
       </div>
@@ -235,13 +239,15 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
                   )}
                   <Select
                     value={filter.field}
-                    onValueChange={(value) => updateFilter(filter.id, { field: value })}
+                    onValueChange={(value) =>
+                      updateFilter(filter.id, { field: value })
+                    }
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Field" />
                     </SelectTrigger>
                     <SelectContent>
-                      {AVAILABLE_FIELDS.map(field => (
+                      {AVAILABLE_FIELDS.map((field) => (
                         <SelectItem key={field.value} value={field.value}>
                           {field.label}
                         </SelectItem>
@@ -250,13 +256,15 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
                   </Select>
                   <Select
                     value={filter.operator}
-                    onValueChange={(value) => updateFilter(filter.id, { operator: value })}
+                    onValueChange={(value) =>
+                      updateFilter(filter.id, { operator: value })
+                    }
                   >
                     <SelectTrigger className="w-[160px]">
                       <SelectValue placeholder="Operator" />
                     </SelectTrigger>
                     <SelectContent>
-                      {OPERATORS.map(op => (
+                      {OPERATORS.map((op) => (
                         <SelectItem key={op.value} value={op.value}>
                           {op.label}
                         </SelectItem>
@@ -266,13 +274,17 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
                   <Input
                     placeholder="Value"
                     value={filter.value}
-                    onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
+                    onChange={(e) =>
+                      updateFilter(filter.id, { value: e.target.value })
+                    }
                     className="flex-1"
                   />
                   {index > 0 && (
                     <Select
                       value={filter.logicalOperator}
-                      onValueChange={(value: 'AND' | 'OR') => updateFilter(filter.id, { logicalOperator: value })}
+                      onValueChange={(value: "AND" | "OR") =>
+                        updateFilter(filter.id, { logicalOperator: value })
+                      }
                     >
                       <SelectTrigger className="w-[100px]">
                         <SelectValue />
@@ -317,13 +329,15 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
                 <div key={group.id} className="flex items-center space-x-2">
                   <Select
                     value={group.field}
-                    onValueChange={(value) => updateGroup(group.id, { field: value })}
+                    onValueChange={(value) =>
+                      updateGroup(group.id, { field: value })
+                    }
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Field" />
                     </SelectTrigger>
                     <SelectContent>
-                      {AVAILABLE_FIELDS.map(field => (
+                      {AVAILABLE_FIELDS.map((field) => (
                         <SelectItem key={field.value} value={field.value}>
                           {field.label}
                         </SelectItem>
@@ -332,13 +346,15 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
                   </Select>
                   <Select
                     value={group.aggregator}
-                    onValueChange={(value) => updateGroup(group.id, { aggregator: value })}
+                    onValueChange={(value) =>
+                      updateGroup(group.id, { aggregator: value })
+                    }
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Aggregator" />
                     </SelectTrigger>
                     <SelectContent>
-                      {AGGREGATORS.map(agg => (
+                      {AGGREGATORS.map((agg) => (
                         <SelectItem key={agg.value} value={agg.value}>
                           {agg.label}
                         </SelectItem>
@@ -372,20 +388,24 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
         </CardHeader>
         <CardContent>
           {sorts.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No sort options added</p>
+            <p className="text-gray-500 text-center py-4">
+              No sort options added
+            </p>
           ) : (
             <div className="space-y-3">
               {sorts.map((sort) => (
                 <div key={sort.id} className="flex items-center space-x-2">
                   <Select
                     value={sort.field}
-                    onValueChange={(value) => updateSort(sort.id, { field: value })}
+                    onValueChange={(value) =>
+                      updateSort(sort.id, { field: value })
+                    }
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Field" />
                     </SelectTrigger>
                     <SelectContent>
-                      {AVAILABLE_FIELDS.map(field => (
+                      {AVAILABLE_FIELDS.map((field) => (
                         <SelectItem key={field.value} value={field.value}>
                           {field.label}
                         </SelectItem>
@@ -394,7 +414,9 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
                   </Select>
                   <Select
                     value={sort.direction}
-                    onValueChange={(value: 'asc' | 'desc') => updateSort(sort.id, { direction: value })}
+                    onValueChange={(value: "asc" | "desc") =>
+                      updateSort(sort.id, { direction: value })
+                    }
                   >
                     <SelectTrigger className="w-[140px]">
                       <SelectValue />
@@ -445,29 +467,34 @@ export function QueryBuilder({ onRun, onSave }: QueryBuilderProps) {
             <p>SELECT *</p>
             {groups.length > 0 && (
               <p>
-                {', '}
-                {groups.map(g => g.aggregator).join(', ')}
+                {", "}
+                {groups.map((g) => g.aggregator).join(", ")}
               </p>
             )}
             {filters.length > 0 && (
               <p>
-                WHERE{' '}
-                {filters.map((f, i) => (
-                  <span key={f.id}>
-                    {i > 0 && `${f.logicalOperator} `}
-                    {f.field} {f.operator} '{f.value}'
-                  </span>
-                )).reduce((prev, curr) => <>{prev} {curr}</>)}
+                WHERE{" "}
+                {filters
+                  .map((f, i) => (
+                    <span key={f.id}>
+                      {i > 0 && `${f.logicalOperator} `}
+                      {f.field} {f.operator} &apos;{f.value}&apos;
+                    </span>
+                  ))
+                  .reduce((prev, curr) => (
+                    <>
+                      {prev} {curr}
+                    </>
+                  ))}
               </p>
             )}
             {groups.length > 0 && (
-              <p>
-                GROUP BY {groups.map(g => g.field).join(', ')}
-              </p>
+              <p>GROUP BY {groups.map((g) => g.field).join(", ")}</p>
             )}
             {sorts.length > 0 && (
               <p>
-                ORDER BY {sorts.map(s => `${s.field} ${s.direction}`).join(', ')}
+                ORDER BY{" "}
+                {sorts.map((s) => `${s.field} ${s.direction}`).join(", ")}
               </p>
             )}
             {limit && <p>LIMIT {limit}</p>}

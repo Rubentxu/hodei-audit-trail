@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DashboardLayout } from '@/components/layout';
 import { QueryBuilder } from '@/components/analytics/query-builder';
 import { SQLEditor } from '@/components/analytics/sql-editor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,7 +56,8 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Analytics & Query Builder</h1>
@@ -173,6 +175,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

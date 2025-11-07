@@ -94,8 +94,14 @@ export const apiDocumentation = {
         properties: {
           id: { type: "string" },
           name: { type: "string" },
-          type: { type: "string", enum: ["SOC2", "PCI_DSS", "GDPR", "HIPAA", "ISO27001"] },
-          status: { type: "string", enum: ["generating", "ready", "failed", "expired"] },
+          type: {
+            type: "string",
+            enum: ["SOC2", "PCI_DSS", "GDPR", "HIPAA", "ISO27001"],
+          },
+          status: {
+            type: "string",
+            enum: ["generating", "ready", "failed", "expired"],
+          },
           format: { type: "string", enum: ["pdf", "json", "csv"] },
           tenantId: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
@@ -105,9 +111,7 @@ export const apiDocumentation = {
       },
     },
   },
-  security: [
-    { bearerAuth: [] },
-  ],
+  security: [{ bearerAuth: [] }],
   tags: [
     { name: "Events", description: "Event management endpoints" },
     { name: "Analytics", description: "Analytics and reporting endpoints" },
@@ -123,12 +127,36 @@ export const apiDocumentation = {
         description: "Retrieve events with filtering, pagination, and sorting",
         parameters: [
           { name: "tenantId", in: "query", schema: { type: "string" } },
-          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-          { name: "pageSize", in: "query", schema: { type: "integer", default: 50 } },
-          { name: "sortBy", in: "query", schema: { type: "string", default: "timestamp" } },
-          { name: "sortOrder", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "desc" } },
-          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
-          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+          {
+            name: "page",
+            in: "query",
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "pageSize",
+            in: "query",
+            schema: { type: "integer", default: 50 },
+          },
+          {
+            name: "sortBy",
+            in: "query",
+            schema: { type: "string", default: "timestamp" },
+          },
+          {
+            name: "sortOrder",
+            in: "query",
+            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+          },
+          {
+            name: "startDate",
+            in: "query",
+            schema: { type: "string", format: "date-time" },
+          },
+          {
+            name: "endDate",
+            in: "query",
+            schema: { type: "string", format: "date-time" },
+          },
         ],
         responses: {
           200: {
@@ -142,7 +170,10 @@ export const apiDocumentation = {
                     data: {
                       type: "object",
                       properties: {
-                        events: { type: "array", items: { $ref: "#/components/schemas/Event" } },
+                        events: {
+                          type: "array",
+                          items: { $ref: "#/components/schemas/Event" },
+                        },
                         total: { type: "integer" },
                         page: { type: "integer" },
                         pageSize: { type: "integer" },
@@ -166,7 +197,12 @@ export const apiDocumentation = {
         tags: ["Events"],
         summary: "Get event by ID",
         parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
           200: { description: "Success" },
@@ -204,7 +240,11 @@ export const apiDocumentation = {
         parameters: [
           { name: "type", in: "query", schema: { type: "string" } },
           { name: "status", in: "query", schema: { type: "string" } },
-          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          {
+            name: "page",
+            in: "query",
+            schema: { type: "integer", default: 1 },
+          },
         ],
         responses: {
           200: { description: "Success" },
@@ -222,7 +262,10 @@ export const apiDocumentation = {
                 required: ["name", "type", "format", "timeRange"],
                 properties: {
                   name: { type: "string" },
-                  type: { type: "string", enum: ["SOC2", "PCI_DSS", "GDPR", "HIPAA", "ISO27001"] },
+                  type: {
+                    type: "string",
+                    enum: ["SOC2", "PCI_DSS", "GDPR", "HIPAA", "ISO27001"],
+                  },
                   format: { type: "string", enum: ["pdf", "json", "csv"] },
                   timeRange: {
                     type: "object",
@@ -342,13 +385,13 @@ export function generateMarkdownDocs(): string {
   markdown += `## Authentication\n\n`;
   markdown += `The API supports two authentication methods:\n\n`;
   markdown += `1. **Bearer Token (JWT)** - For user authentication\n`;
-  markdown += `   \\`\\`\\`\n`;
+  markdown += `   \`\`\`\n`;
   markdown += `   Authorization: Bearer <token>\n`;
-  markdown += `   \\`\\`\\`\n\n`;
+  markdown += `   \`\`\`\n\n`;
   markdown += `2. **API Key** - For service-to-service authentication\n`;
-  markdown += `   \\`\\`\\`\n`;
+  markdown += `   \`\`\`\n`;
   markdown += `   x-api-key: <api-key>\n`;
-  markdown += `   \\`\\`\\`\n\n`;
+  markdown += `   \`\`\`\n\n`;
 
   // Endpoints
   markdown += `## Endpoints\n\n`;
@@ -357,27 +400,31 @@ export function generateMarkdownDocs(): string {
     const pathKey = path.replace("/", "").replace(/-/g, " ");
     markdown += `### ${pathKey}\n\n`;
 
-    Object.entries(methods as any).forEach(([method, details]: [string, any]) => {
-      markdown += `#### ${method.toUpperCase()} ${path}\n\n`;
-      markdown += `${details.summary}\n\n`;
+    Object.entries(methods as any).forEach(
+      ([method, details]: [string, any]) => {
+        markdown += `#### ${method.toUpperCase()} ${path}\n\n`;
+        markdown += `${details.summary}\n\n`;
 
-      if (details.parameters) {
-        markdown += `**Parameters:**\n\n`;
-        details.parameters.forEach((param: any) => {
-          markdown += `- \`${param.name}\` (${param.in}) - ${param.schema?.type || param.schema?.$ref || 'object'}\n`;
-        });
-        markdown += `\n`;
-      }
+        if (details.parameters) {
+          markdown += `**Parameters:**\n\n`;
+          details.parameters.forEach((param: any) => {
+            markdown += `- \`${param.name}\` (${param.in}) - ${param.schema?.type || param.schema?.$ref || "object"}\n`;
+          });
+          markdown += `\n`;
+        }
 
-      if (details.responses) {
-        markdown += `**Responses:**\n\n`;
-        Object.entries(details.responses).forEach(([code, response]: [string, any]) => {
-          const description = response.description || '';
-          markdown += `- \`${code}\` - ${description}\n`;
-        });
-        markdown += `\n`;
-      }
-    });
+        if (details.responses) {
+          markdown += `**Responses:**\n\n`;
+          Object.entries(details.responses).forEach(
+            ([code, response]: [string, any]) => {
+              const description = response.description || "";
+              markdown += `- \`${code}\` - ${description}\n`;
+            },
+          );
+          markdown += `\n`;
+        }
+      },
+    );
   });
 
   // Error codes

@@ -1,14 +1,14 @@
-import { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import { JWTPayload, User } from '@/types/auth';
+import { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { JWTPayload, User } from "@/types/auth";
 
 export const authConfig: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -19,22 +19,22 @@ export const authConfig: NextAuthOptions = {
         // For now, we'll use mock users
         const mockUsers: User[] = [
           {
-            id: '1',
-            email: 'admin@hodei.com',
-            name: 'Admin User',
-            role: 'admin',
-            tenant_id: 'tenant-1',
-            tenant_name: 'Acme Corp',
+            id: "1",
+            email: "admin@hodei.com",
+            name: "Admin User",
+            role: "admin",
+            tenant_id: "tenant-1",
+            tenant_name: "Acme Corp",
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
           {
-            id: '2',
-            email: 'analyst@hodei.com',
-            name: 'Analyst User',
-            role: 'analyst',
-            tenant_id: 'tenant-1',
-            tenant_name: 'Acme Corp',
+            id: "2",
+            email: "analyst@hodei.com",
+            name: "Analyst User",
+            role: "analyst",
+            tenant_id: "tenant-1",
+            tenant_name: "Acme Corp",
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -59,12 +59,12 @@ export const authConfig: NextAuthOptions = {
     }),
   ],
   pages: {
-    signIn: '/auth/signin',
-    signOut: '/auth/signout',
-    error: '/auth/error',
+    signIn: "/auth/signin",
+    signOut: "/auth/signout",
+    error: "/auth/error",
   },
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 15 * 60, // 15 minutes
   },
   jwt: {
@@ -98,5 +98,8 @@ export const authConfig: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production',
+  secret: process.env.NEXTAUTH_SECRET || "your-secret-key-change-in-production",
 };
+
+// Export alias for backward compatibility
+export const authOptions = authConfig;

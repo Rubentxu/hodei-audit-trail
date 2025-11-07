@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth/config';
 import { Permission } from '@/lib/auth/permissions';
 import { hasPermission } from '@/lib/auth/permissions';
+import { DashboardLayout } from '@/components/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,8 @@ export default async function AdminTenantsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tenant Management</h1>
@@ -220,6 +222,7 @@ export default async function AdminTenantsPage() {
           ))}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

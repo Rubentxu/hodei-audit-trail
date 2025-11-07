@@ -169,8 +169,9 @@ start_all() {
     # Limpiar PIDs huérfanos
     cleanup_orphaned_pids
 
-    # Crear logs
+    # Crear directorios necesarios
     mkdir -p .dev/logs
+    mkdir -p .dev/pids
 
     # Iniciar backend
     if ! start_backend; then

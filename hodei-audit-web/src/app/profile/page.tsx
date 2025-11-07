@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth/config';
+import { DashboardLayout } from '@/components/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,8 @@ export default async function ProfilePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profile</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
@@ -157,6 +159,7 @@ export default async function ProfilePage() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

@@ -1,8 +1,12 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Permission } from '@/lib/auth/permissions';
-import { usePermission, useAnyPermission, useAllPermissions } from '@/hooks/use-permissions';
+import React from "react";
+import { Permission } from "@/lib/auth/permissions";
+import {
+  usePermission,
+  useAnyPermission,
+  useAllPermissions,
+} from "@/hooks/use-permissions";
 
 interface PermissionGuardProps {
   permission?: Permission;
@@ -28,11 +32,18 @@ export function PermissionGuard({
   children,
   fallback = null,
 }: PermissionGuardProps) {
+  // Call all hooks unconditionally to satisfy Rules of Hooks
+  // We always call all three hooks in the same order, every render
+  const permissionResult = usePermission(permission || "");
+  const allPermissionsResult = useAllPermissions(permissions);
+  const anyPermissionsResult = useAnyPermission(permissions);
+
+  // Use appropriate result based on the input parameters
   const hasPermission = permission
-    ? usePermission(permission)
+    ? permissionResult
     : requireAll
-    ? useAllPermissions(permissions)
-    : useAnyPermission(permissions);
+      ? allPermissionsResult
+      : anyPermissionsResult;
 
   if (hasPermission) {
     return <>{children}</>;
@@ -51,10 +62,15 @@ export function withPermissionGuard<P extends object>(
     permissions?: Permission[];
     requireAll?: boolean;
     fallback?: React.ReactNode;
-  }
+  },
 ) {
   return function ProtectedComponent(props: P) {
-    const { permission, permissions = [], requireAll = false, fallback } = options;
+    const {
+      permission,
+      permissions = [],
+      requireAll = false,
+      fallback,
+    } = options;
 
     return (
       <PermissionGuard

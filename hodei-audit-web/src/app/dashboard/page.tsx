@@ -1,185 +1,118 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { getServerSession } from "next-auth";
-import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, LayoutGrid, Settings } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-
-interface WidgetConfig {
-  id: string;
-  type: string;
-  title: string;
-  position: { x: number; y: number; w: number; h: number };
-}
-
-const defaultWidgets: WidgetConfig[] = [
-  {
-    id: "event-count",
-    type: "event-count",
-    title: "Event Count",
-    position: { x: 0, y: 0, w: 1, h: 1 },
-  },
-  {
-    id: "critical-events",
-    type: "critical-events",
-    title: "Critical Events",
-    position: { x: 1, y: 0, w: 1, h: 1 },
-  },
-  {
-    id: "compliance-score",
-    type: "compliance-score",
-    title: "Compliance Score",
-    position: { x: 2, y: 0, w: 1, h: 1 },
-  },
-  {
-    id: "time-series",
-    type: "time-series",
-    title: "Events Over Time",
-    position: { x: 0, y: 1, w: 2, h: 1 },
-  },
-  {
-    id: "top-users",
-    type: "top-users",
-    title: "Top Users",
-    position: { x: 2, y: 1, w: 1, h: 1 },
-  },
-];
+import { DashboardLayout } from "@/components/layout"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { FileText, TrendingUp, Shield, AlertTriangle } from "lucide-react"
 
 export default function DashboardPage() {
-  const { status } = useSession();
-  const [widgets, setWidgets] = useState<WidgetConfig[]>(defaultWidgets);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-
-  // Redirect to login if not authenticated
-  if (status === "unauthenticated") {
-    redirect("/auth/login?callbackUrl=/dashboard");
-  }
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    // Simulate data refresh
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
-  };
-
-  const handleAddWidget = () => {
-    // TODO: Open widget selection modal
-    console.log("Add widget");
-  };
-
-  const handleCustomizeDashboard = () => {
-    // TODO: Open dashboard customization
-    console.log("Customize dashboard");
-  };
-
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      handleRefresh();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh]);
-
-  if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto" />
-          <p className="mt-2 text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Page Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Real-time audit trail overview
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to your audit trail overview
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleAddWidget}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Widget
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCustomizeDashboard}
-          >
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Customize
-          </Button>
-        </div>
-      </div>
 
-      {/* Auto-refresh indicator */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div
-            className={`h-2 w-2 rounded-full ${autoRefresh ? "bg-green-500" : "bg-gray-400"}`}
-          />
-          <span className="text-sm text-gray-600">
-            {autoRefresh ? "Auto-refresh: ON" : "Auto-refresh: OFF"}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setAutoRefresh(!autoRefresh)}
-        >
-          <Settings className="h-4 w-4 mr-2" />
-          {autoRefresh ? "Disable" : "Enable"} Auto-refresh
-        </Button>
-      </div>
-
-      {/* Widget Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {widgets.map((widget) => (
-          <Card key={widget.id} className="col-span-1">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{widget.title}</CardTitle>
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-center h-40 text-gray-400">
-                <div className="text-center">
-                  <LayoutGrid className="h-8 w-8 mx-auto mb-2" />
-                  <p className="text-sm">{widget.type} widget</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Widget placeholder
-                  </p>
-                </div>
+              <div className="text-2xl font-bold">12,345</div>
+              <p className="text-xs text-muted-foreground">
+                +20.1% from last month
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Compliance Rate</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">94.2%</div>
+              <p className="text-xs text-muted-foreground">
+                +2.5% from last month
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">23</div>
+              <p className="text-xs text-muted-foreground">
+                3 critical, 20 warning
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">+12.5%</div>
+              <p className="text-xs text-muted-foreground">
+                vs. last month
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Content Grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle>Recent Events</CardTitle>
+              <CardDescription>
+                A list of the most recent audit events
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center space-x-4 rounded-lg border p-4">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">User Login</p>
+                      <p className="text-xs text-muted-foreground">admin@example.com</p>
+                    </div>
+                    <div className="text-xs text-muted-foreground">2 hours ago</div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-        ))}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Common tasks and shortcuts
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <button className="w-full text-left px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+                Generate Report
+              </button>
+              <button className="w-full text-left px-4 py-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
+                Export Events
+              </button>
+              <button className="w-full text-left px-4 py-2 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                View Analytics
+              </button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
-  );
+    </DashboardLayout>
+  )
 }

@@ -25,7 +25,7 @@ const complianceClient = USE_MOCK_API ? null : createComplianceServiceClient();
  */
 async function handleGetReports(
   request: NextRequest,
-  context: AuthContext
+  context: AuthContext,
 ): Promise<NextResponse> {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -43,7 +43,9 @@ async function handleGetReports(
       result = response.data!;
     } else {
       const apiClients = createApiClients(complianceClient!);
-      const response = await apiClients.compliance.getReports({ tenantId: context.tenantId! });
+      const response = await apiClients.compliance.getReports({
+        tenantId: context.tenantId!,
+      });
       result = response.data!;
     }
 
@@ -83,7 +85,7 @@ async function handleGetReports(
           message: "Failed to fetch reports",
         },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -94,11 +96,12 @@ async function handleGetReports(
  */
 async function handleGenerateReport(
   request: NextRequest,
-  context: AuthContext
+  context: AuthContext,
 ): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { name, type, format, timeRange, sections, template, recipients } = body;
+    const { name, type, format, timeRange, sections, template, recipients } =
+      body;
 
     if (!name || !type || !format || !timeRange) {
       return NextResponse.json(
@@ -109,7 +112,7 @@ async function handleGenerateReport(
             message: "name, type, format, and timeRange are required",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -130,12 +133,15 @@ async function handleGenerateReport(
       report = response.data!;
     } else {
       const apiClients = createApiClients(complianceClient!);
-      const response = await apiClients.compliance.generateReport(reportRequest);
+      const response =
+        await apiClients.compliance.generateReport(reportRequest);
       report = response.data!;
     }
 
     // Log report generation
-    console.log(`[Compliance] Report generated: ${report.id} by user ${context.user?.id}`);
+    console.log(
+      `[Compliance] Report generated: ${report.id} by user ${context.user?.id}`,
+    );
 
     return NextResponse.json({
       success: true,
@@ -155,7 +161,7 @@ async function handleGenerateReport(
           message: "Failed to generate report",
         },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -166,7 +172,7 @@ async function handleGenerateReport(
  */
 async function handleGetKeys(
   request: NextRequest,
-  context: AuthContext
+  context: AuthContext,
 ): Promise<NextResponse> {
   try {
     let result;
@@ -175,7 +181,7 @@ async function handleGetKeys(
       result = response.data!;
     } else {
       const apiClients = createApiClients(complianceClient!);
-      const response = await apiClients.compliance.getKeys({ tenantId: context.tenantId! });
+      const response = await apiClients.compliance.getKeys(context.tenantId!);
       result = response.data!;
     }
 
@@ -197,12 +203,16 @@ async function handleGetKeys(
           message: "Failed to fetch keys",
         },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export const GET = withAuth(handleGetReports, ["view:compliance"]);
-export const POST = withAuth(handleGenerateReport, ["view:compliance", "generate:reports"]);
+export const POST = withAuth(handleGenerateReport, [
+  "view:compliance",
+  "generate:reports",
+]);
 
-export const GET_KEYS = withAuth(handleGetKeys, ["view:compliance", "manage:compliance"]);
+// Note: GET_KEYS endpoint removed - not a valid Next.js route export
+// The handleGetKeys function is still defined above for reference

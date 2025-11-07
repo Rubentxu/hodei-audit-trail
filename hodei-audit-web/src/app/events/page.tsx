@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { DashboardLayout } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -162,7 +163,8 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Event History</h1>
@@ -361,6 +363,7 @@ export default function EventsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

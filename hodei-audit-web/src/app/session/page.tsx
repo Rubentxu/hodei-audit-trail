@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth/config';
+import { DashboardLayout } from '@/components/layout';
 import { SessionManager } from '@/components/auth/session-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -12,7 +13,8 @@ export default async function SessionPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Session</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
@@ -23,6 +25,7 @@ export default async function SessionPage() {
       <div className="max-w-2xl">
         <SessionManager />
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

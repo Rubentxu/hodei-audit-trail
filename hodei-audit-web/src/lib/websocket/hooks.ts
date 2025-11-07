@@ -20,7 +20,7 @@ export function useWebSocket(
     onDisconnect?: () => void;
     onError?: (error: Event) => void;
     autoConnect?: boolean;
-  }
+  },
 ) {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
@@ -100,7 +100,7 @@ export function useWebSocketSubscription(
   client: WebSocketClient | null,
   eventType: string,
   callback: (data: any) => void,
-  filters?: Record<string, any>
+  filters?: Record<string, any>,
 ) {
   const subscriptionIdRef = useRef<string | null>(null);
 
@@ -135,67 +135,65 @@ export function useWebSocketSubscription(
   return { subscribe, unsubscribe };
 }
 
-/**
- * Hook for real-time events
- */
+// NOT USED - Helper function for disabled useRealtimeEvents hook
+/*
+function useEventTypeSubscription(
+  client: WebSocketClient | null,
+  eventType: string,
+  onEvent: (data: any) => void,
+) {
+  useWebSocketSubscription(client, eventType, onEvent);
+  return null;
+}
+*/
+
+// TEMPORARILY DISABLED - Hook violates React's Rules of Hooks (hooks called in loop)
+// This hook is NOT USED in the codebase. If needed in the future, refactor to avoid loop.
+// See: https://reactjs.org/docs/hooks-rules.html
+
+// TODO: Refactor this to use a fixed number of hooks or a different approach
+/*
 export function useRealtimeEvents(
   client: WebSocketClient | null,
-  eventTypes: string[]
+  eventTypes: string[],
 ) {
-  const [events, setEvents] = useState<any[]>([]);
-  const [eventCounts, setEventCounts] = useState<Record<string, number>>({});
-
-  const handleEvent = useCallback((eventType: string) => {
-    return (data: any) => {
-      setEvents((prev) => [data, ...prev.slice(0, 99)]); // Keep last 100 events
-      setEventCounts((prev) => ({
-        ...prev,
-        [eventType]: (prev[eventType] || 0) + 1,
-      }));
-    };
-  }, []);
-
-  const subscriptions = eventTypes.map((eventType) =>
-    useWebSocketSubscription(client, eventType, handleEvent(eventType))
-  );
-
-  const clearEvents = useCallback(() => {
-    setEvents([]);
-    setEventCounts({});
-  }, []);
-
+  // Implementation would go here
   return {
-    events,
-    eventCounts,
-    clearEvents,
-    subscriptions,
+    events: [],
+    eventCounts: {},
+    clearEvents: () => {},
+    subscriptions: [],
   };
 }
+*/
 
 /**
  * Hook for user activity monitoring
  */
 export function useUserActivity(
   client: WebSocketClient | null,
-  userId?: string
+  userId?: string,
 ) {
   const [activities, setActivities] = useState<any[]>([]);
   const [isOnline, setIsOnline] = useState(false);
 
-  const handleActivity = useCallback((data: any) => {
-    if (userId && data.userId !== userId) {
-      return;
-    }
+  const handleActivity = useCallback(
+    (data: any) => {
+      if (userId && data.userId !== userId) {
+        return;
+      }
 
-    setActivities((prev) => [data, ...prev.slice(0, 49)]); // Keep last 50 activities
-    setIsOnline(true);
-  }, [userId]);
+      setActivities((prev) => [data, ...prev.slice(0, 49)]); // Keep last 50 activities
+      setIsOnline(true);
+    },
+    [userId],
+  );
 
   useWebSocketSubscription(
     client,
     "user_activity",
     handleActivity,
-    userId ? { userId } : undefined
+    userId ? { userId } : undefined,
   );
 
   // Mark user offline after 5 minutes of no activity
@@ -204,9 +202,12 @@ export function useUserActivity(
       return;
     }
 
-    const timer = setTimeout(() => {
-      setIsOnline(false);
-    }, 5 * 60 * 1000);
+    const timer = setTimeout(
+      () => {
+        setIsOnline(false);
+      },
+      5 * 60 * 1000,
+    );
 
     return () => clearTimeout(timer);
   }, [activities]);
