@@ -1,0 +1,276 @@
+# Vector.dev DaemonSet - Hodei Audit Trail
+# Runs on every Kubernetes node for data collection and fan-out
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hodei-audit
+---
+# ConfigMap for Vector configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+  namespace: hodei-audit
+  labels:
+    app: vector
+    component: config
+data:
+  vector.toml: |
+    # Vector configuration will be loaded from mounted config
+    data_dir = "/var/lib/vector"
+    log_schema = "vector"
+
+    # gRPC Source
+    [sources.cap_grpc]
+    type = "grpc_server"
+    address = "0.0.0.0:50051"
+    decoding = { type = "json" }
+
+    # API for health checks
+    [api]
+    enabled = true
+    address = "0.0.0.0:9598"
+
+    # ClickHouse Sink (Hot Tier)
+    [sinks.clickhouse_hot]
+    type = "clickhouse"
+    inputs = ["enrich"]
+    compression = "gzip"
+    database = "hodei_audit"
+    table = "audit_events"
+    endpoint = "http://clickhouse.hodei-audit.svc.cluster.local:8123"
+
+    [sinks.clickhouse_hot.config]
+    auth.user = "hodei"
+    auth.password = "hodei123"
+    healthcheck.enabled = true
+
+    # S3 Sink (Warm/Cold Tier)
+    [sinks.s3_warm]
+    type = "aws_s3"
+    inputs = ["enrich"]
+    compression = "gzip"
+    bucket = "hodei-audit-warm"
+    region = "us-east-1"
+    endpoint = "http://minio.hodei-audit.svc.cluster.local:9000"
+    encoding.codec = "json"
+
+    [sinks.s3_warm.config.aws_auth]
+    access_key = "${MINIO_ROOT_USER}"
+    secret_key = "${MINIO_ROOT_PASSWORD}"
+
+    # Blackhole Sink (Emergency)
+    [sinks.blackhole]
+    type = "blackhole"
+    inputs = ["enrich"]
+    print_interval = 5
+    print_summary = true
+
+    # Prometheus Metrics
+    [sinks.prometheus]
+    type = "prometheus_exporter"
+    inputs = ["_internal_metrics"]
+    host = "0.0.0.0"
+    port = 9598
+    default_namespace = "vector"
+
+    # Enrich Transform
+    [transforms.enrich]
+    type = "remap"
+    inputs = ["cap_grpc"]
+    storage_tier = "hot"
+---
+# Vector DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vector
+  namespace: hodei-audit
+  labels:
+    app: vector
+    component: data-collector
+    version: latest
+spec:
+  selector:
+    matchLabels:
+      app: vector
+      component: data-collector
+  template:
+    metadata:
+      labels:
+        app: vector
+        component: data-collector
+        version: latest
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9598"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Run on all nodes
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+
+      containers:
+      # Vector collector
+      - name: vector
+        image: timberio/vector:latest-alpine
+        imagePullPolicy: Always
+        ports:
+        - name: grpc
+          containerPort: 50051
+          protocol: TCP
+        - name: metrics
+          containerPort: 9598
+          protocol: TCP
+          hostPort: 9598
+
+        env:
+        - name: VECTOR_LOG
+          value: "info"
+        - name: DATA_DIR
+          value: "/var/lib/vector"
+        # MinIO credentials (from secrets)
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: access-key
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secret-key
+
+        # Resource limits
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        # Volume mounts
+        volumeMounts:
+        - name: vector-config
+          mountPath: /etc/vector
+          readOnly: true
+        - name: vector-data
+          mountPath: /var/lib/vector
+        - name: vector-logs
+          mountPath: /var/log/vector
+
+        # Health check
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9598
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9598
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+
+      # Sidecar for metrics scraping
+      - name: vector-metrics-sidecar
+        image: otel/opentelemetry-collector-contrib:latest
+        args: ["--config=/etc/otelcol/metrics-config.yaml"]
+        ports:
+        - name: otel-metrics
+          containerPort: 8888
+          protocol: TCP
+
+        volumeMounts:
+        - name: otel-config
+          mountPath: /etc/otelcol
+          readOnly: true
+
+      volumes:
+      - name: vector-config
+        configMap:
+          name: vector-config
+      - name: vector-data
+        hostPath:
+          path: /var/lib/vector
+          type: DirectoryOrCreate
+      - name: vector-logs
+        hostPath:
+          path: /var/log/vector
+          type: DirectoryOrCreate
+      - name: otel-config
+        configMap:
+          name: vector-otel-config
+          optional: true
+
+      # Security context for pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+---
+# Service for Vector metrics
+apiVersion: v1
+kind: Service
+metadata:
+  name: vector-metrics
+  namespace: hodei-audit
+  labels:
+    app: vector
+    component: metrics
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 9598
+    targetPort: 9598
+    protocol: TCP
+  selector:
+    app: vector
+    component: data-collector
+
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vector-metrics
+  namespace: hodei-audit
+  labels:
+    app: vector
+    component: metrics
+spec:
+  selector:
+    matchLabels:
+      app: vector
+      component: metrics
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s

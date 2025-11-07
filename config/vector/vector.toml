@@ -1,0 +1,265 @@
+# Vector.dev Configuration - Hodei Audit Trail
+# Multi-sink fan-out with persistent disk buffer
+
+# Global settings
+data_dir = "/var/lib/vector"
+log_schema = "vector"
+
+# ===============================
+# SOURCES - Ingesta de eventos
+# ===============================
+
+# gRPC Source - CAP (Centralized Audit Point)
+[sources.cap_grpc]
+type = "grpc_server"
+address = "0.0.0.0:50051"
+compression = "none"
+max_connection_duration = 300
+max_connection_rate = 100
+connection_limit = 1000
+decoding = { type = "json" }
+
+# Health check endpoint
+[api]
+enabled = true
+address = "0.0.0.0:9598"
+# API key for security (should be set via environment)
+# api_key = "${VECTOR_API_KEY}"
+
+# ===============================
+# TRANSFORMS - Procesamiento
+# ===============================
+
+# Enrich events with metadata
+[transforms.enrich_metadata]
+type = "remap"
+inputs = ["cap_grpc"]
+# Add processing timestamp
+processing_timestamp = "%W"
+# Normalize tenant ID
+tenant_id = to_string!(.tenant_id.value)
+# Add event type classification
+event_type = if is_string!(.event_type) { .event_type } else { "unknown" }
+
+# Add routing tags
+[transforms.add_routing_tags]
+type = "remap"
+inputs = ["enrich_metadata"]
+# Tag for tier (hot/warm/cold)
+storage_tier = match event_type {
+  "CRYPTO" => "hot",
+  "AUTH" => "hot",
+  "DATA_ACCESS" => "hot",
+  "CONFIG_CHANGE" => "warm",
+  "USER_ACTIVITY" => "warm",
+  _ => "cold"
+}
+# Tag for sink routing
+needs_immediate_alert = match event_type {
+  "SECURITY_BREACH" => true,
+  "FAILED_LOGIN" => true,
+  _ => false
+}
+
+# ===============================
+# BUFFERS - Persistencia
+# ===============================
+
+# Disk buffer for all sinks (persistent across restarts)
+# Size: 1-5GB depending on traffic
+[buffers.default]
+type = "disk"
+max_events = 50000
+when_full = "block"
+max_file_size = 104857600  # 100MB per file
+# Compress old data to save space
+lazy_free_type = "Compressed"
+
+# Separate buffer for high-priority events
+[buffers.hot_tier]
+type = "disk"
+max_events = 10000
+when_full = "drop_newest"
+max_file_size = 52428800  # 50MB per file
+
+# ===============================
+# SINKS - Destinos
+# ===============================
+
+# SINK 1: ClickHouse (Hot Tier - Immediate access)
+[sinks.clickhouse_hot]
+type = "clickhouse"
+inputs = ["hot_tier_filter"]
+compression = "gzip"
+database = "hodei_audit"
+table = "audit_events_hot"
+endpoint = "http://clickhouse:8123"
+buffer = "hot_tier"
+
+# ClickHouse auth
+[transforms.to_clickhouse]
+type = "remap"
+inputs = ["add_routing_tags"]
+# Map to ClickHouse schema
+clickhouse_payload = {
+  "event_id" = .event_id.value,
+  "tenant_id" = tenant_id,
+  "timestamp" = .timestamp,
+  "event_type" = .event_type,
+  "event_data" = to_string!(.event_data),
+  "source_ip" = .source_ip,
+  "user_id" = .user_id,
+  "metadata" = to_string!(.metadata),
+  "hash" = .hash,
+  "signature" = .signature
+}
+
+# Hot tier filter
+[transforms.hot_tier_filter]
+type = "route"
+inputs = ["to_clickhouse"]
+route.hot = 'storage_tier == "hot"'
+route.urgent = 'needs_immediate_alert == true'
+
+[sinks.clickhouse_hot.config]
+auth.user = "hodei"
+auth.password = "hodei123"
+# Health check
+healthcheck.enabled = true
+
+# SINK 2: S3 (Warm/Cold Tier - Long-term storage)
+[sinks.s3_warm]
+type = "aws_s3"
+inputs = ["warm_cold_filter"]
+compression = "gzip"
+bucket = "hodei-audit-warm"
+region = "us-east-1"
+# Use S3-compatible storage (MinIO for dev)
+endpoint = "http://minio:9000"
+# Compression and batching
+encoding.codec = "json"
+encoding.compress = "gzip"
+# Time-based partitioning
+key_prefix = "audit/year={{_year}}/month={{_month}}/day={{_day}}/hour={{_hour}}/"
+
+# Batch configuration for S3
+batch.max_events = 1000
+batch.timeout_secs = 60
+
+# Warm/cold tier filter
+[transforms.warm_cold_filter]
+type = "route"
+inputs = ["to_s3"]
+route.warm = 'storage_tier == "warm"'
+route.cold = 'storage_tier == "cold"'
+
+# S3 auth (MinIO in dev)
+[transforms.to_s3]
+type = "remap"
+inputs = ["warm_cold_filter"]
+# Prepare S3-ready payload
+s3_payload = {
+  "event_id" = .event_id.value,
+  "tenant_id" = tenant_id,
+  "timestamp" = .timestamp,
+  "event_type" = .event_type,
+  "event_data" = to_string!(.event_data),
+  "storage_tier" = storage_tier,
+  "processing_timestamp" = processing_timestamp
+}
+
+[sinks.s3_warm.config]
+# AWS credentials (or MinIO in dev)
+assume_role = { enabled = false }
+# For MinIO (dev)
+[ aws_auth ]
+access_key = "minioadmin"
+secret_key = "minioadmin123"
+# Override endpoint for MinIO
+[ sinks.s3_warm.config.endpoint ]
+enabled = true
+value = "http://minio:9000"
+
+# SINK 3: Blackhole (Emergency - Testing/Debug)
+[sinks.blackhole_emergency]
+type = "blackhole"
+inputs = ["emergency_filter"]
+# Print to stdout for testing
+print_interval = 5
+# Print summary
+print_summary = true
+
+[transforms.emergency_filter]
+type = "route"
+inputs = ["add_routing_tags"]
+route.emergency = 'needs_immediate_alert == true'
+
+# SINK 4: Vector Internal Metrics (for observability)
+[sinks.vector_metrics]
+type = "prometheus_exporter"
+inputs = ["_internal_metrics"]
+host = "0.0.0.0"
+port = 9598
+# Export internal Vector metrics
+# These are automatically available at /metrics
+default_namespace = "vector"
+
+# ===============================
+# HEALTH CHECKS
+# ===============================
+
+# Vector health is available at:
+# http://localhost:9598/health
+# Returns JSON with Vector's status
+
+# ===============================
+# MONITORING
+# ===============================
+
+# Vector exposes metrics at:
+# http://localhost:9598/metrics
+# Includes:
+# - buffer_size_bytes
+# - events_in_total
+# - events_out_total
+# - sink_sent_events_total (per sink)
+# - sink_request_duration_seconds
+# - sink_errors_total
+
+# ===============================
+# ERROR HANDLING
+# ===============================
+
+# Retry configuration
+[sinks.clickhouse_hot.config.retry]
+max_attempts = 5
+initial_interval_secs = 1
+max_interval_secs = 10
+multiplier = 2.0
+
+[sinks.s3_warm.config.retry]
+max_attempts = 5
+initial_interval_secs = 1
+max_interval_secs = 10
+multiplier = 2.0
+
+# ===============================
+# PERFORMANCE TUNING
+# ===============================
+
+# Global settings for high-throughput
+[vector]
+log_level = "info"
+# Rate limiting
+max_connection_duration = 300
+# Concurrency
+max_concurrent_requests = 100
+
+# Buffer backpressure
+[buffers.default.config]
+# When buffer is full, block new events
+when_full = "block"
+# Emergency overflow to blackhole
+[buffers.default.config.overflow]
+enabled = true
+sink = "blackhole_emergency"

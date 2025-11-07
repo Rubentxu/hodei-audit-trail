@@ -14,6 +14,9 @@ hodei-audit-types = { path = "../hodei-audit-types" }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 
+# HTTP client for Vector metrics
+reqwest = { version = "0.11", features = ["json", "stream"], default-features = false }
+
 # gRPC
 tonic = { workspace = true }
 prost = { workspace = true }
@@ -48,8 +51,16 @@ lru = { workspace = true }
 [features]
 # Enable integration tests with testcontainers
 integration-tests = []
+# Enable vector metrics
+vector-metrics = []
+# Enable all vector features
+vector = ["vector-metrics"]
+
+[default]
+vector = true
 
 [dev-dependencies]
+# Enable integration tests with testcontainers
 tempfile = { workspace = true }
 # Testcontainers for integration tests
 testcontainers = "0.25"

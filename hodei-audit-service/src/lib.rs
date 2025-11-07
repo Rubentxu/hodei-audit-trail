@@ -26,6 +26,7 @@ pub mod s3_storage;
 pub mod service;
 pub mod storage;
 pub mod tenant;
+pub mod vector;
 pub mod workers;
 
 // #[cfg(all(test, feature = "integration-tests"))]
@@ -54,6 +55,13 @@ pub use s3_storage::{
 };
 pub use service::{HodeiAuditService, ServiceConfig, ServiceMetrics};
 pub use tenant::{TenantContext, TenantContextManager, TenantExtractor, TenantTier};
+pub use vector::{
+    VectorError, VectorForwarder, VectorForwarderConfig, VectorResult, VectorSinkConfig,
+    VectorSinkManager, VectorSinkType, create_default_sinks,
+};
+
+#[cfg(feature = "vector-metrics")]
+pub use vector::{VectorHealthStatus, VectorMetrics, VectorMetricsCollector, VectorMetricsSummary};
 pub use workers::digest_worker::{
     DigestWorker, DigestWorkerConfig, DigestWorkerError, DigestWorkerResult,
 };
