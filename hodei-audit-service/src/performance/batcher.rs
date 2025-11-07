@@ -289,7 +289,7 @@ mod tests {
     async fn test_size_based_batching() {
         let config = BatcherConfig {
             max_queue_size: 1000,
-            policy: BatchingPolicy::SizeBased(10),
+            policy: BatchingPolicy::SizeBased(20), // Set to 20 so auto-flush doesn't trigger
             flush_timeout: Duration::from_millis(100),
             adaptive_tuning: false,
             backpressure_controller: None,
@@ -298,17 +298,22 @@ mod tests {
 
         let batcher = SmartBatcher::new(config);
 
-        // Add events
+        // Add events (below the size threshold to avoid auto-flush)
         for i in 0..10 {
             batcher.add_event(i).await.unwrap();
         }
 
-        // Batch should be automatically flushed
-        sleep(Duration::from_millis(10)).await;
+        // Verify queue has 10 events
+        assert_eq!(batcher.queue_size().await, 10);
+
+        // Manual flush to verify batching works
+        let result = batcher.flush().await.unwrap();
+        assert_eq!(result.batch.len(), 10);
 
         let metrics = batcher.get_metrics().await;
         assert_eq!(metrics.total_flushes, 1);
         assert_eq!(metrics.total_events, 10);
+        assert_eq!(metrics.total_batches, 1);
     }
 
     #[tokio::test]

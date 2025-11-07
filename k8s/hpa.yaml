@@ -1,0 +1,71 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hodei-audit-service
+  namespace: default
+  labels:
+    app: hodei-audit-service
+    version: v1
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hodei-audit-service
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+  # CPU utilization metric
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory utilization metric
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom metric: Events per second per pod
+  - type: Pods
+    pods:
+      metric:
+        name: events_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000" # 1K events/sec per pod
+  # Custom metric: Queue size
+  - type: Object
+    object:
+      metric:
+        name: queue_size
+      describedObject:
+        apiVersion: v1
+        kind: Service
+        name: hodei-audit-service
+      target:
+        type: Value
+        value: "1000" # Max queue size before scaling up
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300 # 5 minutes
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 5
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60 # 1 minute
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 10
+        periodSeconds: 15
+      selectPolicy: Max

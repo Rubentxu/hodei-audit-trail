@@ -48,6 +48,9 @@ getrandom = { version = "0.2", features = ["js"] }
 # LRU Cache
 lru = { workspace = true }
 
+# Metrics
+prometheus-client = "0.22"
+
 [features]
 # Enable integration tests with testcontainers
 integration-tests = []

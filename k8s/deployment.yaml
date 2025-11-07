@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hodei-audit-service
+  namespace: default
+  labels:
+    app: hodei-audit-service
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # Zero-downtime deployments
+  selector:
+    matchLabels:
+      app: hodei-audit-service
+  template:
+    metadata:
+      labels:
+        app: hodei-audit-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Graceful shutdown configuration
+      terminationGracePeriodSeconds: 30
+      # Pod Disruption Budget will ensure availability during voluntary disruptions
+      containers:
+      - name: hodei-audit-service
+        image: hodei-audit-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        # gRPC port
+        - containerPort: 50051
+          name: grpc
+          protocol: TCP
+        # Metrics port
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        # Health check port
+        - containerPort: 8080
+          name: health
+          protocol: TCP
+        env:
+        - name: RUST_LOG
+          value: "info"
+        - name: GRPC_PORT
+          value: "50051"
+        - name: METRICS_PORT
+          value: "9090"
+        - name: HEALTH_PORT
+          value: "8080"
+        # Performance tuning
+        - name: RUST_BACKTRACE
+          value: "1"
+        # Resource limits for HPA metrics
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        # Liveness probe - check if container is alive
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        # Readiness probe - check if container is ready to accept traffic
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        # Startup probe - check if container has started successfully
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30 # 2.5 minutes maximum startup time
+          successThreshold: 1
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        # Volume mounts
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+      # Security context for pod
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: hodei-audit-service-config
+          optional: true

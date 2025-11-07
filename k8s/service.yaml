@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hodei-audit-service
+  namespace: default
+  labels:
+    app: hodei-audit-service
+  annotations:
+    # Enable load balancer sticky sessions for gRPC
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    # AWS-specific annotations for NLB
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    # For GCP
+    cloud.google.com/backend-config: '{"default": "hodei-audit-service-backend-config"}'
+    # For Azure
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  # Traffic policy for load balancing
+  trafficPolicy:
+    loadBalancerSourceRanges:
+    - 0.0.0.0/0
+    # Session affinity (useful for connection pooling)
+    sessionAffinity: ClientIP
+    sessionAffinityConfig:
+      clientIP:
+        timeoutSeconds: 10800 # 3 hours
+  ports:
+  # gRPC port
+  - name: grpc
+    port: 50051
+    targetPort: grpc
+    protocol: TCP
+    # gRPC health check port
+  - name: health
+    port: 8080
+    targetPort: health
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: hodei-audit-service
+  # Allocate load balancer IP
+  loadBalancerIP: ""
+  # LoadBalancerSourceRanges restricts traffic to specific CIDR blocks
+  # loadBalancerSourceRanges:
+  # - 10.0.0.0/8
+  # - 192.168.0.0/16
+---
+# Headless service for direct pod discovery (optional)
+apiVersion: v1
+kind: Service
+metadata:
+  name: hodei-audit-service-headless
+  namespace: default
+  labels:
+    app: hodei-audit-service
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: grpc
+    protocol: TCP
+  selector:
+    app: hodei-audit-service
+---
+# BackendConfig for GCP (optional, for more advanced load balancing)
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: hodei-audit-service-backend-config
+  namespace: default
+spec:
+  healthCheck:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health/ready
+    port: 8080
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 10800

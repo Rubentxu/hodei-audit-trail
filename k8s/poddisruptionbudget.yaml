@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hodei-audit-service-pdb
+  namespace: default
+  labels:
+    app: hodei-audit-service
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: hodei-audit-service
+  # Alternative: Use maxUnavailable instead of minAvailable
+  # maxUnavailable: 1

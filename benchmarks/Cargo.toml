@@ -1,0 +1,48 @@
+[package]
+name = "hodei-audit-benchmarks"
+version = "0.1.0"
+edition = "2024"
+description = "Performance benchmarks for Hodei Audit Service"
+license = "MIT"
+
+[dependencies]
+# Reference the workspace members
+hodei-audit-service = { path = "../hodei-audit-service" }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full", "rt-multi-thread", "macros"] }
+
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+
+# Tracing
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
+
+[[bench]]
+name = "smart_batcher_policies"
+harness = false
+
+[[bench]]
+name = "connection_pool"
+harness = false
+
+[[bench]]
+name = "backpressure_controller"
+harness = false
+
+[[bench]]
+name = "circuit_breaker"
+harness = false
+
+[[bench]]
+name = "zero_copy_batching"
+harness = false
+
+[[bench]]
+name = "throughput_target"
+harness = false
+
+[[bench]]
+name = "concurrent_operations"
+harness = false

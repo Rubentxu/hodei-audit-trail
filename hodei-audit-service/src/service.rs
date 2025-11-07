@@ -567,3 +567,24 @@ mod tests {
         assert_eq!(metrics.total_events_ingested, 0);
     }
 }
+
+/// Extension trait for additional service methods
+#[async_trait::async_trait]
+pub trait HodeiAuditServiceExt: Send + Sync {
+    /// Get health check result
+    async fn health_check(&self) -> Result<std::collections::HashMap<String, bool>>;
+
+    /// Get service metrics
+    fn get_metrics(&self) -> ServiceMetrics;
+}
+
+#[async_trait::async_trait]
+impl HodeiAuditServiceExt for HodeiAuditService {
+    async fn health_check(&self) -> Result<std::collections::HashMap<String, bool>> {
+        HodeiAuditService::health_check(self).await
+    }
+
+    fn get_metrics(&self) -> ServiceMetrics {
+        HodeiAuditService::get_metrics(self)
+    }
+}

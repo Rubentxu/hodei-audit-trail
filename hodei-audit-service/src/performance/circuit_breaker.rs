@@ -336,8 +336,10 @@ mod tests {
     #[tokio::test]
     async fn test_circuit_closes_after_successes() {
         let config = CircuitBreakerConfig {
+            failure_threshold: 3,
             success_threshold: 2,
             timeout: Duration::from_millis(100),
+            min_request_threshold: 1,
             ..Default::default()
         };
 
@@ -368,7 +370,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_manual_reset() {
-        let config = CircuitBreakerConfig::default();
+        let config = CircuitBreakerConfig {
+            failure_threshold: 3,
+            min_request_threshold: 1,
+            ..Default::default()
+        };
+
         let cb = CircuitBreaker::new(config);
 
         // Open the circuit

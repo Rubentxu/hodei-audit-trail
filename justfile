@@ -27,10 +27,22 @@ test-help:
     @echo "📊 COBERTURA:"
     @echo "  just coverage           - Generar reporte de cobertura HTML"
     @echo ""
+    @echo "🏁 BENCHMARKS (Epic 7):"
+    @echo "  just perf-test          - ⚡ EJECUTAR TODOS los benchmarks (rápido)"
+    @echo "  just bench-epic7        - TODOS los benchmarks de Epic 7"
+    @echo "  just bench-batcher      - SmartBatcher policies"
+    @echo "  just bench-connection-pool - gRPC connection pool"
+    @echo "  just bench-backpressure - Backpressure controller"
+    @echo "  just bench-circuit-breaker - Circuit breaker"
+    @echo "  just bench-zero-copy    - Zero-copy batching"
+    @echo "  just bench-throughput   - Throughput target (100K/sec)"
+    @echo "  just bench-concurrent   - Concurrent operations"
+    @echo ""
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
     @echo "💡 EJEMPLOS:"
     @echo "  just test-integration"
+    @echo "  just bench-epic7"
     @echo "  just coverage"
     @echo ""
 
@@ -107,7 +119,55 @@ dev:
 
 # Benchmarks
 bench:
+    @echo "🏃 Ejecutando todos los benchmarks del workspace..."
     cargo bench --workspace
+
+# Alias para ejecutar todos los benchmarks rápidamente
+perf-test:
+    @echo "🚀 Ejecutando TODOS los benchmarks de Epic 7..."
+    just bench-epic7
+
+# Benchmarks de Epic 7 - Performance
+bench-epic7:
+    @echo ""
+    @echo "╔════════════════════════════════════════════════════════════╗"
+    @echo "║         🏁 BENCHMARKS EPIC 7 - PERFORMANCE TEST          ║"
+    @echo "╚════════════════════════════════════════════════════════════╝"
+    @echo ""
+    @echo "📊 Ejecutando benchmarks de Epic 7 (Alto Rendimiento)..."
+    @echo ""
+    cd benchmarks && cargo bench
+    @echo ""
+    @echo "✅ Benchmarks de Epic 7 completados!"
+
+# Benchmarks específicos de Epic 7
+bench-batcher:
+    @echo "🎯 Benchmarking SmartBatcher policies..."
+    cargo bench -p hodei-audit-benchmarks smart_batcher_policies
+
+bench-connection-pool:
+    @echo "🔗 Benchmarking Connection Pool..."
+    cargo bench -p hodei-audit-benchmarks connection_pool
+
+bench-backpressure:
+    @echo "⬇️  Benchmarking Backpressure Controller..."
+    cargo bench -p hodei-audit-benchmarks backpressure_controller
+
+bench-circuit-breaker:
+    @echo "🔄 Benchmarking Circuit Breaker..."
+    cargo bench -p hodei-audit-benchmarks circuit_breaker
+
+bench-zero-copy:
+    @echo "⚡ Benchmarking Zero-Copy Batching..."
+    cargo bench -p hodei-audit-benchmarks zero_copy_batching
+
+bench-throughput:
+    @echo "🚀 Benchmarking Throughput Target (100K events/sec)..."
+    cargo bench -p hodei-audit-benchmarks throughput_target
+
+bench-concurrent:
+    @echo "🔀 Benchmarking Concurrent Operations..."
+    cargo bench -p hodei-audit-benchmarks concurrent_operations
 
 # Clean
 clean:
