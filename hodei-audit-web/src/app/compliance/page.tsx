@@ -22,6 +22,7 @@ import { KeyManagementView } from "@/components/compliance/key-management-view";
 import { ComplianceSettingsView } from "@/components/compliance/compliance-settings-view";
 import { ComplianceDashboardView } from "@/components/compliance/compliance-dashboard-view";
 import { AuditTrailView } from "@/components/compliance/audit-trail-view";
+import { ReportScheduler } from "@/components/compliance/report-scheduler";
 
 export default function CompliancePage() {
   const { data: session, status } = useSession();
@@ -97,7 +98,7 @@ export default function CompliancePage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Dashboard
@@ -105,6 +106,10 @@ export default function CompliancePage() {
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="schedule" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Schedule
           </TabsTrigger>
           <TabsTrigger value="digests" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -143,6 +148,10 @@ export default function CompliancePage() {
             <ReportsList />
             <TemplatesList />
           </div>
+        </TabsContent>
+
+        <TabsContent value="schedule" className="space-y-4">
+          <ReportScheduler />
         </TabsContent>
 
         <TabsContent value="digests" className="space-y-4">
