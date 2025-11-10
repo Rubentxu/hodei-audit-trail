@@ -1,0 +1,67 @@
+[package]
+name = "petclinic-app"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Team <team@example.com>"]
+description = "Pet Clinic Application - Ejemplo de integración con hodei-audit-service"
+license = "Apache-2.0"
+repository = "https://github.com/your-org/hodei-trail"
+keywords = ["petclinic", "axum", "rust", "audit"]
+categories = ["web-programming"]
+
+[dependencies]
+# Web framework
+axum = { version = "0.8", features = ["macros", "ws"] }
+tower = "0.4"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tokio = { version = "1.0", features = ["full"] }
+hyper = { version = "1.0", features = ["full"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
+tokio-postgres = "0.7"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate", "stream"] }
+
+# Serde y JSON
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Logging y tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "json", "env-filter", "chrono"] }
+tracing-appender = "0.2"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Hodei Audit SDK (from workspace)
+hodei-audit-sdk = { path = "../hodei-audit-sdk" }
+hodei-audit-types = { path = "../hodei-audit-types" }
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Testing
+rstest = "0.18"
+test-log = "0.2"
+tempfile = "3.0"
+
+# Health checks
+metrics = "0.22"
+metrics-exporter-prometheus = "0.14"
+
+[dev-dependencies]
+tokio-test = "0.4"
+wiremock = "0.6"
+
+[features]
+default = []
+testing = []

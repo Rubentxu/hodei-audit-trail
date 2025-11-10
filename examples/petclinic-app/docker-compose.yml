@@ -1,0 +1,345 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # PET CLINIC APPLICATION
+  # ============================================================================
+  petclinic-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: petclinic-app
+    ports:
+      - "3000:3000"
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://petclinic:petclinic@postgres:5432/petclinic
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=petclinic
+      - DB_PASSWORD=petclinic
+      - DB_NAME=petclinic
+
+      # Redis Configuration
+      - REDIS_URL=redis://redis:6379/0
+
+      # Hodei Audit Service Integration
+      - HODEI_AUDIT_ENABLED=true
+      - HODEI_AUDIT_SERVICE_URL=http://hodei-audit-service:50052
+      - HODEI_AUDIT_TENANT_ID=tenant-petclinic
+      - HODEI_AUDIT_API_KEY=petclinic-api-key-123
+      - HODEI_AUDIT_BATCH_SIZE=100
+      - HODEI_AUDIT_BATCH_TIMEOUT_MS=1000
+
+      # Application Configuration
+      - RUST_LOG=info
+      - APP_ENV=development
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=3000
+
+      # Connection Pool Settings
+      - DB_POOL_MIN_CONNECTIONS=5
+      - DB_POOL_MAX_CONNECTIONS=20
+      - DB_POOL_CONNECTION_TIMEOUT=30
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hodei-audit-service:
+        condition: service_healthy
+    networks:
+      - petclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================================
+  # POSTGRESQL DATABASE
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: petclinic-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=petclinic
+      - POSTGRES_PASSWORD=petclinic
+      - POSTGRES_DB=petclinic
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=en_US --lc-ctype=en_US
+    volumes:
+      # Database data persistence
+      - postgres_data:/var/lib/postgresql/data
+
+      # Initialize database with schema and sample data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+      # PostgreSQL configuration
+      - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    networks:
+      - petclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petclinic -d petclinic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # REDIS (CACHING & SESSIONS)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: petclinic-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      # Redis configuration
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis_data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - petclinic-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ============================================================================
+  # ADMINER - DATABASE MANAGEMENT UI
+  # ============================================================================
+  adminer:
+    image: adminer:latest
+    container_name: petclinic-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      - postgres
+    networks:
+      - petclinic-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # HODEI AUDIT SERVICE (CAP - Centralized Audit Point)
+  # ============================================================================
+  hodei-audit-service:
+    build:
+      context: ./hodei-audit-service
+      dockerfile: Dockerfile
+    container_name: hodei-audit-service
+    ports:
+      - "50052:50052"  # Ingestion API
+      - "50053:50053"  # Query API
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://hodei_audit:audit123@clickhouse:8123/hodei_audit
+
+      # ClickHouse for hot storage
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USER=hodei_audit
+      - CLICKHOUSE_PASSWORD=audit123
+      - CLICKHOUSE_DATABASE=hodei_audit
+
+      # S3/MinIO for warm/cold storage
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=audit-logs
+      - S3_REGION=us-east-1
+
+      # Multi-tenant Configuration
+      - RLS_ENABLED=true
+      - TENANT_ISOLATION=strict
+
+      # Security
+      - API_KEY_HASH_ALG=SHA256
+
+      # Vector.dev Integration
+      - VECTOR_ENABLED=true
+      - VECTOR_HOST=vector
+      - VECTOR_PORT=50051
+    volumes:
+      - vector_data:/var/lib/vector
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vector:
+        condition: service_healthy
+    networks:
+      - petclinic-network
+      - audit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:50052/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # CLICKHOUSE (HOT STORAGE FOR HODEI)
+  # ============================================================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: petclinic-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native interface
+    environment:
+      - CLICKHOUSE_DB=hodei_audit
+      - CLICKHOUSE_USER=hodei_audit
+      - CLICKHOUSE_PASSWORD=audit123
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./config/clickhouse/config.xml:/etc/clickhouse-server/config.xml:ro
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - audit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================================
+  # MINIO (S3 COMPATIBLE STORAGE FOR HODEI)
+  # ============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: petclinic-minio
+    ports:
+      - "9001:9001"  # MinIO Console
+      - "9000:9000"  # S3 API
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_CONSOLE_ADDRESS=:9001
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - audit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ============================================================================
+  # VECTOR.DEV (DATA PIPELINE FOR HODEI)
+  # ============================================================================
+  vector:
+    image: timberio/vector:0.34.1-alpine
+    container_name: petclinic-vector
+    ports:
+      - "50051:50051"  # gRPC input
+      - "8686:8686"    # Vector API
+    environment:
+      - VECTOR_LOG=info
+    volumes:
+      # Vector configuration
+      - ./config/vector/vector.toml:/etc/vector/vector.toml:ro
+      - vector_data:/var/lib/vector
+    networks:
+      - audit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8686/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # PROMETHEUS (METRICS & MONITORING)
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: petclinic-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - petclinic-network
+      - audit-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # GRAFANA (DASHBOARDS)
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: petclinic-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - petclinic-network
+      - audit-network
+    restart: unless-stopped
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  petclinic-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  audit-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  clickhouse_data:
+    driver: local
+  minio_data:
+    driver: local
+  vector_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
