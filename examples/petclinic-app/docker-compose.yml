@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # ============================================================================
@@ -21,7 +21,6 @@ services:
       - DB_NAME=petclinic
 
       # Redis Configuration
-      - REDIS_URL=redis://redis:6379/0
 
       # Hodei Audit Service Integration
       - HODEI_AUDIT_ENABLED=true
@@ -44,8 +43,6 @@ services:
 
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       hodei-audit-service:
         condition: service_healthy
@@ -92,28 +89,6 @@ services:
       retries: 5
 
   # ============================================================================
-  # REDIS (CACHING & SESSIONS)
-  # ============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: petclinic-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      # Redis configuration
-      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-      - redis_data:/data
-    command: redis-server /usr/local/etc/redis/redis.conf
-    networks:
-      - petclinic-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-  # ============================================================================
   # ADMINER - DATABASE MANAGEMENT UI
   # ============================================================================
   adminer:
@@ -138,8 +113,8 @@ services:
       dockerfile: Dockerfile
     container_name: hodei-audit-service
     ports:
-      - "50052:50052"  # Ingestion API
-      - "50053:50053"  # Query API
+      - "50052:50052" # Ingestion API
+      - "50053:50053" # Query API
     environment:
       # Database Configuration
       - DATABASE_URL=postgresql://hodei_audit:audit123@clickhouse:8123/hodei_audit
@@ -182,7 +157,15 @@ services:
       - audit-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:50052/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:50052/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -194,8 +177,8 @@ services:
     image: clickhouse/clickhouse-server:23.8
     container_name: petclinic-clickhouse
     ports:
-      - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native interface
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native interface
     environment:
       - CLICKHOUSE_DB=hodei_audit
       - CLICKHOUSE_USER=hodei_audit
@@ -213,7 +196,15 @@ services:
       - audit-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8123/ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -225,8 +216,8 @@ services:
     image: minio/minio:latest
     container_name: petclinic-minio
     ports:
-      - "9001:9001"  # MinIO Console
-      - "9000:9000"  # S3 API
+      - "9001:9001" # MinIO Console
+      - "9000:9000" # S3 API
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
@@ -250,8 +241,8 @@ services:
     image: timberio/vector:0.34.1-alpine
     container_name: petclinic-vector
     ports:
-      - "50051:50051"  # gRPC input
-      - "8686:8686"    # Vector API
+      - "50051:50051" # gRPC input
+      - "8686:8686" # Vector API
     environment:
       - VECTOR_LOG=info
     volumes:
@@ -262,7 +253,15 @@ services:
       - audit-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8686/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8686/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -279,12 +278,12 @@ services:
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
     networks:
       - petclinic-network
       - audit-network
@@ -330,8 +329,6 @@ networks:
 # ============================================================================
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
   clickhouse_data:
     driver: local
